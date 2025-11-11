@@ -1363,7 +1363,7 @@ form {
   background-color: #111a25;
   color: white;
   padding: 4px 12px;
-  border-radius: 12px;
+  border-radius: 11px;
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
@@ -1376,15 +1376,15 @@ form {
   background-color: rgb(233, 233, 233);
   color: black;
   padding: 4px 12px;
-  border-radius: 12px;
+  border-radius: 11px;
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
 }
 
 .location-icon {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   stroke-width: 2.5;
 }
 
