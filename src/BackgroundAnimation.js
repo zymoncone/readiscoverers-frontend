@@ -15,23 +15,23 @@ const BackgroundAnimation = () => {
       const drawGradientBackground = () => {
         // Dark blue/light aesthetic gradient
         const time = p.frameCount * 0.0008;
-        
+
         p.noStroke();
-        
+
         // Create soft flowing orbs in blue/indigo tones
         for (let i = 0; i < 4; i++) {
           const angle = time + i * 1.5;
           const x = p.width / 2 + p.cos(angle) * 120;
           const y = p.height / 2 + p.sin(angle * 0.8) * 100;
           const hue = 230 + p.sin(time + i) * 15; // Blue/indigo range
-          
+
           for (let r = 700; r > 0; r -= 60) {
             const alpha = p.map(r, 0, 700, 6, 0);
             p.fill(hue, 25, 92, alpha);
             p.ellipse(x, y, r, r);
           }
         }
-        
+
         // Base light blue-grey background
         p.fill(220, 12, 98); // Very light blue-grey
         p.rect(0, 0, p.width, p.height);
@@ -76,21 +76,21 @@ const BackgroundAnimation = () => {
           p.push();
           p.translate(this.x, this.y);
           p.rotate(this.rotation);
-          
+
           // Page shadow
           p.fill(0, 0, 0, 15);
           p.noStroke();
           p.rect(2, 2, this.width, this.height, 2);
-          
+
           // Colorful book cover
           p.fill(this.hue, this.saturation, this.brightness, this.opacity);
           p.rect(0, 0, this.width, this.height, 2);
-          
+
           // Subtle spine or accent line
           p.stroke(this.hue, this.saturation + 10, this.brightness - 20, this.opacity);
           p.strokeWeight(1.5);
           p.line(this.width * 0.15, 0, this.width * 0.15, this.height);
-          
+
           // Title lines on book cover (slightly darker)
           p.stroke(this.hue, this.saturation + 5, this.brightness - 30, this.opacity * 0.7);
           p.strokeWeight(0.8);
@@ -100,7 +100,7 @@ const BackgroundAnimation = () => {
             const lineWidth = this.width * p.random(0.4, 0.7);
             p.line(this.width * 0.25, y, this.width * 0.25 + lineWidth, y);
           }
-          
+
           p.pop();
         }
       }
@@ -153,12 +153,12 @@ const BackgroundAnimation = () => {
       p.setup = () => {
         p.createCanvas(window.innerWidth, window.innerHeight);
         p.colorMode(p.HSB, 360, 100, 100, 100);
-        
+
         // Create book pages
         for (let i = 0; i < pageCount; i++) {
           bookPages.push(new BookPage());
         }
-        
+
         // Create particles (dust motes)
         for (let i = 0; i < particleCount; i++) {
           particles.push(new Particle());
@@ -204,8 +204,8 @@ const BackgroundAnimation = () => {
   }, []);
 
   return (
-    <div 
-      ref={canvasRef} 
+    <div
+      ref={canvasRef}
       style={{
         position: 'fixed',
         top: 0,

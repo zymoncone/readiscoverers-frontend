@@ -39,7 +39,6 @@ const PasswordGate = ({ children }) => {
       {children}
       <div className="password-gate">
         <div className="password-container">
-          <div className="lock-icon">📚</div>
           <h1>Welcome to Readiscover.app</h1>
           <p>For early access please enter the password.</p>
 
