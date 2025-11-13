@@ -20,6 +20,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [response, setResponse] = useState(null);
+  const [originalResponse, setOriginalResponse] = useState(null);
   const [error, setError] = useState(null);
   const [devMode, setDevMode] = useState(false);
   const [showBubbleTransition, setShowBubbleTransition] = useState(false);
@@ -138,6 +139,7 @@ function App() {
     setLoading(true);
     setError(null);
     setResponse(null);
+    setOriginalResponse(null);
     setModelResponse(null);
 
     try {
@@ -185,27 +187,69 @@ function App() {
       setLoadingPhase('search');
       const searchApiUrl = getApiUrl('/v1/search-response');
 
-      const [searchRes] = await Promise.all([
-        fetch(searchApiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            query: enhancedQuery,
-            local_filename: localFilename,
-            top_k: topK
+      // In dev mode, search with both enhanced and original query
+      if (devMode) {
+        const [enhancedSearchRes, originalSearchRes] = await Promise.all([
+          fetch(searchApiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query: enhancedQuery,
+              local_filename: localFilename,
+              top_k: topK
+            }),
           }),
-        }),
-        new Promise(resolve => setTimeout(resolve, 0)) // Minimum for search phase
-      ]);
+          fetch(searchApiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query: query,
+              local_filename: localFilename,
+              top_k: topK
+            }),
+          }),
+          new Promise(resolve => setTimeout(resolve, 0)) // Minimum for search phase
+        ]);
 
-      if (!searchRes.ok) {
-        throw new Error(`Search API error! status: ${searchRes.status}`);
+        if (!enhancedSearchRes.ok) {
+          throw new Error(`Enhanced search API error! status: ${enhancedSearchRes.status}`);
+        }
+        if (!originalSearchRes.ok) {
+          throw new Error(`Original search API error! status: ${originalSearchRes.status}`);
+        }
+
+        const enhancedData = await enhancedSearchRes.json();
+        const originalData = await originalSearchRes.json();
+        setResponse(enhancedData);
+        setOriginalResponse(originalData);
+      } else {
+        // Production mode: only use enhanced query
+        const [searchRes] = await Promise.all([
+          fetch(searchApiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              query: enhancedQuery,
+              local_filename: localFilename,
+              top_k: topK
+            }),
+          }),
+          new Promise(resolve => setTimeout(resolve, 0)) // Minimum for search phase
+        ]);
+
+        if (!searchRes.ok) {
+          throw new Error(`Search API error! status: ${searchRes.status}`);
+        }
+
+        const data = await searchRes.json();
+        setResponse(data);
       }
-
-      const data = await searchRes.json();
-      setResponse(data);
 
     } catch (err) {
       setError(err.message || 'An error occurred while searching');
@@ -482,34 +526,103 @@ function App() {
         )}
 
         {response && step === 'query' && Array.isArray(response) && (
-          <div className="results-container">
-            {response.map((result, index) => (
-              <div key={index} className="result-card">
-                <div className="result-header">
-                  <span className="chapter-info">
-                    Chapter: {result.chapter_number_raw} - {result.chapter_name}
-                  </span>
-                  <div className="badges-container">
-                    {result.book_progress_percent !== undefined && (
-                      <span className="progress-badge">
-                        <svg className="location-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                          <circle cx="12" cy="10" r="3"></circle>
-                        </svg>
-                        {result.book_progress_percent.toFixed(1)}%
-                      </span>
-                    )}
-                    <span className="score-badge">
-                      {(result.score * 100).toFixed(1)}% match
-                    </span>
+          <>
+            {devMode && originalResponse ? (
+              <div className="comparison-container">
+                <div className="comparison-column">
+                  <h3 className="comparison-title">Enhanced Query Results</h3>
+                  <div className="results-container">
+                    {response.map((result, index) => (
+                      <div key={index} className="result-card">
+                        <div className="result-header">
+                          <span className="chapter-info">
+                            Chapter: {result.chapter_number_raw} - {result.chapter_name}
+                          </span>
+                          <div className="badges-container">
+                            {result.book_progress_percent !== undefined && (
+                              <span className="progress-badge">
+                                <svg className="location-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                  <circle cx="12" cy="10" r="3"></circle>
+                                </svg>
+                                {result.book_progress_percent.toFixed(1)}%
+                              </span>
+                            )}
+                            <span className="score-badge">
+                              {(result.score * 100).toFixed(1)}% match
+                            </span>
+                          </div>
+                        </div>
+                        <div className="result-text">
+                          {result.text}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div className="result-text">
-                  {result.text}
+                <div className="comparison-column">
+                  <h3 className="comparison-title">Original Query Results</h3>
+                  <div className="results-container">
+                    {originalResponse.map((result, index) => (
+                      <div key={index} className="result-card">
+                        <div className="result-header">
+                          <span className="chapter-info">
+                            Chapter: {result.chapter_number_raw} - {result.chapter_name}
+                          </span>
+                          <div className="badges-container">
+                            {result.book_progress_percent !== undefined && (
+                              <span className="progress-badge">
+                                <svg className="location-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                  <circle cx="12" cy="10" r="3"></circle>
+                                </svg>
+                                {result.book_progress_percent.toFixed(1)}%
+                              </span>
+                            )}
+                            <span className="score-badge">
+                              {(result.score * 100).toFixed(1)}% match
+                            </span>
+                          </div>
+                        </div>
+                        <div className="result-text">
+                          {result.text}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
+            ) : (
+              <div className="results-container">
+                {response.map((result, index) => (
+                  <div key={index} className="result-card">
+                    <div className="result-header">
+                      <span className="chapter-info">
+                        Chapter: {result.chapter_number_raw} - {result.chapter_name}
+                      </span>
+                      <div className="badges-container">
+                        {result.book_progress_percent !== undefined && (
+                          <span className="progress-badge">
+                            <svg className="location-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                              <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                            {result.book_progress_percent.toFixed(1)}%
+                          </span>
+                        )}
+                        <span className="score-badge">
+                          {(result.score * 100).toFixed(1)}% match
+                        </span>
+                      </div>
+                    </div>
+                    <div className="result-text">
+                      {result.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

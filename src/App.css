@@ -179,7 +179,7 @@
 
 .container {
   position: relative;
-  max-width: 800px;
+  max-width: 1000px;
   width: 100%;
   background: white;
   padding: 5px 35px 15px 35px;
@@ -1276,6 +1276,33 @@ form {
   animation: fadeInScale 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+.comparison-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 20px;
+  animation: fadeInScale 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.comparison-column {
+  min-width: 0;
+}
+
+.comparison-title {
+  color: #6366f1;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+  text-align: center;
+  padding: 8px;
+  background: #eef2ff;
+  border-radius: 8px;
+}
+
+.comparison-column .results-container {
+  margin-top: 0;
+}
+
 @keyframes fadeInScale {
   from {
     opacity: 0;
@@ -1478,5 +1505,10 @@ form {
   .main-title {
     font-size: 1.4rem;
     line-height: 1;
+  }
+
+  .comparison-container {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 }
