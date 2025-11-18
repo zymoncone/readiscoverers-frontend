@@ -10,7 +10,10 @@ function App() {
   // Book upload state
   const [bookUrl, setBookUrl] = useState('');
   const [localFilename, setLocalFilename] = useState('');
-  const [chunkSize, setChunkSize] = useState(1200);
+  const [targetChunkSize, setTargetChunkSize] = useState(800);
+  const [sentenceOverlap, setSentenceOverlap] = useState(2);
+  const [smallParagraphLength, setSmallParagraphLength] = useState(200);
+  const [smallParagraphOverlap, setSmallParagraphOverlap] = useState(2);
 
   // Query state
   const [query, setQuery] = useState('');
@@ -38,10 +41,10 @@ function App() {
       setLoadingProgress(0);
       interval = setInterval(() => {
         setLoadingProgress(prev => {
-          if (prev >= 95) return prev; // Cap at 95% until response
-          return prev + 5;
+          if (prev >= 99) return prev; // Cap at 99% until response
+          return prev + 3;
         });
-      }, 1000); // Update every second
+      }, 800); // Update every 800ms
     }
     return () => clearInterval(interval);
   }, [isUploadingBook]);
@@ -82,6 +85,15 @@ function App() {
     setResponse(null);
     setReadyComplete(false); // Reset ready completion status
 
+    console.log('Uploading book and parsing with parameters:', {
+      url: finalBookUrl,
+      local_filename: finalLocalFilename,
+      target_chunk_size: targetChunkSize,
+      sentence_overlap: sentenceOverlap,
+      small_paragraph_length: smallParagraphLength,
+      small_paragraph_overlap: smallParagraphOverlap
+    });
+
     try {
       const apiUrl = getApiUrl('/v1/book-data');
 
@@ -93,15 +105,23 @@ function App() {
         body: JSON.stringify({
           url: finalBookUrl,
           local_filename: finalLocalFilename,
-          chunk_size: chunkSize
+          target_chunk_size: targetChunkSize,
+          sentence_overlap: sentenceOverlap,
+          small_paragraph_length: smallParagraphLength,
+          small_paragraph_overlap: smallParagraphOverlap
         }),
       });
 
       if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
+        throw new Error(`Book data API error!`);
       }
 
       const data = await res.json();
+
+      if (data.status === 'error') {
+        throw new Error(data.message || 'An error occurred during book upload or parsing');
+      }
+
       if (process.env.REACT_APP_ENV === 'dev') {
         console.log('Book data uploaded successfully:', data);
       }
@@ -117,8 +137,8 @@ function App() {
       }, 300);
 
     } catch (err) {
-      console.error('Book upload error:', err);
-      setError(err.message || 'An error occurred while uploading the book');
+      console.error('Book data error:', err);
+      setError(err.message || 'An unknown error occurred during book upload or parsing');
       // If there's an error, revert back to book-upload step
       setStep('book-upload');
       setShowBubbleTransition(false);
@@ -161,10 +181,15 @@ function App() {
       ]);
 
       if (!modelRes.ok) {
-        throw new Error(`Model API error! status: ${modelRes.status}`);
+        throw new Error(`Model API error!`);
       }
 
       const modelData = await modelRes.json();
+
+      if (modelData.status === 'error') {
+        throw new Error(modelData.message || 'Model API returned an error');
+      }
+
       if (process.env.REACT_APP_ENV === 'dev') {
         console.log('Full model response:', modelData);
       }
@@ -216,16 +241,23 @@ function App() {
         ]);
 
         if (!enhancedSearchRes.ok) {
-          throw new Error(`Enhanced search API error! status: ${enhancedSearchRes.status}`);
+          throw new Error(`Enhanced search API error!`);
         }
         if (!originalSearchRes.ok) {
-          throw new Error(`Original search API error! status: ${originalSearchRes.status}`);
+          throw new Error(`Original search API error!`);
         }
 
         const enhancedData = await enhancedSearchRes.json();
         const originalData = await originalSearchRes.json();
-        setResponse(enhancedData);
-        setOriginalResponse(originalData);
+
+        if (enhancedData.status === 'error') {
+          throw new Error(enhancedData.message || 'An error occurred during enhanced search');
+        }
+        if (originalData.status === 'error') {
+          throw new Error(originalData.message || 'An error occurred during original search');
+        }
+        setResponse(enhancedData.search_results);
+        setOriginalResponse(originalData.search_results);
       } else {
         // Production mode: only use enhanced query
         const [searchRes] = await Promise.all([
@@ -244,11 +276,16 @@ function App() {
         ]);
 
         if (!searchRes.ok) {
-          throw new Error(`Search API error! status: ${searchRes.status}`);
+          throw new Error(`Search API error! status`);
         }
 
         const data = await searchRes.json();
-        setResponse(data);
+
+        if (data.status === 'error') {
+          throw new Error(data.message || 'An error occurred during search');
+        }
+
+        setResponse(data.search_results);
       }
 
     } catch (err) {
@@ -350,20 +387,56 @@ function App() {
               </div>
 
               {devMode && (
-                <div className="form-group">
-                  <label className="input-label">
-                    Chunk Size: {chunkSize}
-                  </label>
-                  <input
-                    type="number"
-                    value={chunkSize}
-                    onChange={(e) => setChunkSize(Number(e.target.value))}
-                    className="search-input"
-                    disabled={loading}
-                    min="100"
-                    max="5000"
-                  />
-                </div>
+                <>
+                  <div className="form-group">
+                    <label className="input-label">
+                      Target Chunk Size: {targetChunkSize}
+                    </label>
+                    <input
+                      type="number"
+                      value={targetChunkSize}
+                      onChange={(e) => setTargetChunkSize(Number(e.target.value))}
+                      className="search-input"
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="input-label">
+                      Sentence Overlap: {sentenceOverlap}
+                    </label>
+                    <input
+                      type="number"
+                      value={sentenceOverlap}
+                      onChange={(e) => setSentenceOverlap(Number(e.target.value))}
+                      className="search-input"
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="input-label">
+                      Small Paragraph Length: {smallParagraphLength}
+                    </label>
+                    <input
+                      type="number"
+                      value={smallParagraphLength}
+                      onChange={(e) => setSmallParagraphLength(Number(e.target.value))}
+                      className="search-input"
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="input-label">
+                      Small Paragraph Overlap: {smallParagraphOverlap}
+                    </label>
+                    <input
+                      type="number"
+                      value={smallParagraphOverlap}
+                      onChange={(e) => setSmallParagraphOverlap(Number(e.target.value))}
+                      className="search-input"
+                      disabled={loading}
+                    />
+                  </div>
+                </>
               )}
 
               <button
