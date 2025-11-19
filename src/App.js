@@ -85,15 +85,6 @@ function App() {
     setResponse(null);
     setReadyComplete(false); // Reset ready completion status
 
-    console.log('Uploading book and parsing with parameters:', {
-      url: finalBookUrl,
-      local_filename: finalLocalFilename,
-      target_chunk_size: targetChunkSize,
-      sentence_overlap: sentenceOverlap,
-      small_paragraph_length: smallParagraphLength,
-      small_paragraph_overlap: smallParagraphOverlap
-    });
-
     try {
       const apiUrl = getApiUrl('/v1/book-data');
 
@@ -212,6 +203,9 @@ function App() {
       setLoadingPhase('search');
       const searchApiUrl = getApiUrl('/v1/search-response');
 
+      // Generate a session ID
+      const queryId = crypto.randomUUID();
+
       // In dev mode, search with both enhanced and original query
       if (devMode) {
         const [enhancedSearchRes, originalSearchRes] = await Promise.all([
@@ -223,7 +217,9 @@ function App() {
             body: JSON.stringify({
               query: enhancedQuery,
               local_filename: localFilename,
-              top_k: topK
+              top_k: topK,
+              query_id: queryId,
+              enhanced_query: true
             }),
           }),
           fetch(searchApiUrl, {
@@ -234,7 +230,9 @@ function App() {
             body: JSON.stringify({
               query: query,
               local_filename: localFilename,
-              top_k: topK
+              top_k: topK,
+              query_id: queryId,
+              enhanced_query: false
             }),
           }),
           new Promise(resolve => setTimeout(resolve, 0)) // Minimum for search phase
@@ -256,8 +254,8 @@ function App() {
         if (originalData.status === 'error') {
           throw new Error(originalData.message || 'An error occurred during original search');
         }
-        setResponse(enhancedData.search_results);
-        setOriginalResponse(originalData.search_results);
+        setResponse(enhancedData.search_results || []);
+        setOriginalResponse(originalData.search_results || []);
       } else {
         // Production mode: only use enhanced query
         const [searchRes] = await Promise.all([
@@ -269,7 +267,9 @@ function App() {
             body: JSON.stringify({
               query: enhancedQuery,
               local_filename: localFilename,
-              top_k: topK
+              top_k: topK,
+              query_id: queryId,
+              enhanced_query: true
             }),
           }),
           new Promise(resolve => setTimeout(resolve, 0)) // Minimum for search phase
@@ -609,25 +609,25 @@ function App() {
                       <div key={index} className="result-card">
                         <div className="result-header">
                           <span className="chapter-info">
-                            Chapter: {result.chapter_number_raw} - {result.chapter_name}
+                            Chapter: {result.data.chapter_number_raw} - {result.data.chapter_name}
                           </span>
                           <div className="badges-container">
-                            {result.book_progress_percent !== undefined && (
+                            {result.data.book_progress_percent !== undefined && (
                               <span className="progress-badge">
                                 <svg className="location-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                                   <circle cx="12" cy="10" r="3"></circle>
                                 </svg>
-                                {result.book_progress_percent.toFixed(1)}%
+                                {result.data.book_progress_percent.toFixed(1)}%
                               </span>
                             )}
                             <span className="score-badge">
-                              {(result.score * 100).toFixed(1)}% match
+                              {(result.data.score * 100).toFixed(1)}% match
                             </span>
                           </div>
                         </div>
                         <div className="result-text">
-                          {result.text}
+                          {result.data.text}
                         </div>
                       </div>
                     ))}
@@ -640,25 +640,25 @@ function App() {
                       <div key={index} className="result-card">
                         <div className="result-header">
                           <span className="chapter-info">
-                            Chapter: {result.chapter_number_raw} - {result.chapter_name}
+                            Chapter: {result.data.chapter_number_raw} - {result.data.chapter_name}
                           </span>
                           <div className="badges-container">
-                            {result.book_progress_percent !== undefined && (
+                            {result.data.book_progress_percent !== undefined && (
                               <span className="progress-badge">
                                 <svg className="location-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                                   <circle cx="12" cy="10" r="3"></circle>
                                 </svg>
-                                {result.book_progress_percent.toFixed(1)}%
+                                {result.data.book_progress_percent.toFixed(1)}%
                               </span>
                             )}
                             <span className="score-badge">
-                              {(result.score * 100).toFixed(1)}% match
+                              {(result.data.score * 100).toFixed(1)}% match
                             </span>
                           </div>
                         </div>
                         <div className="result-text">
-                          {result.text}
+                          {result.data.text}
                         </div>
                       </div>
                     ))}
@@ -671,25 +671,25 @@ function App() {
                   <div key={index} className="result-card">
                     <div className="result-header">
                       <span className="chapter-info">
-                        Chapter: {result.chapter_number_raw} - {result.chapter_name}
+                        Chapter: {result.data.chapter_number_raw} - {result.data.chapter_name}
                       </span>
                       <div className="badges-container">
-                        {result.book_progress_percent !== undefined && (
+                        {result.data.book_progress_percent !== undefined && (
                           <span className="progress-badge">
                             <svg className="location-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
                               <circle cx="12" cy="10" r="3"></circle>
                             </svg>
-                            {result.book_progress_percent.toFixed(1)}%
+                            {result.data.book_progress_percent.toFixed(1)}%
                           </span>
                         )}
                         <span className="score-badge">
-                          {(result.score * 100).toFixed(1)}% match
+                          {(result.data.score * 100).toFixed(1)}% match
                         </span>
                       </div>
                     </div>
                     <div className="result-text">
-                      {result.text}
+                      {result.data.text}
                     </div>
                   </div>
                 ))}
