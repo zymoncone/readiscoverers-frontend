@@ -1060,6 +1060,12 @@ form {
   font-weight: 600;
 }
 
+.book-author {
+  color: #64748b;
+  font-weight: 400;
+  font-size: 0.9em;
+}
+
 .book-label {
   color: #94a3b8;
   font-weight: 400;

@@ -10,6 +10,8 @@ function App() {
   // Book upload state
   const [bookUrl, setBookUrl] = useState('');
   const [localFilename, setLocalFilename] = useState('');
+  const [bookTitle, setBookTitle] = useState('');
+  const [bookAuthor, setBookAuthor] = useState('');
   const [targetChunkSize, setTargetChunkSize] = useState(800);
   const [sentenceOverlap, setSentenceOverlap] = useState(2);
   const [smallParagraphLength, setSmallParagraphLength] = useState(200);
@@ -64,13 +66,6 @@ function App() {
 
     // Use defaults if fields are empty
     const finalBookUrl = bookUrl.trim() || defaultBookUrl;
-    const finalLocalFilename = localFilename.trim().toLowerCase().replace(/\s+/g, '_') || defaultLocalFilename;
-    if (process.env.REACT_APP_ENV === 'dev') {
-      console.log('Final Local Filename:', finalLocalFilename);
-    }
-
-    // Update state with the actual values immediately
-    setLocalFilename(finalLocalFilename);
 
     // Immediately trigger the bubble and step transition
     setShowBubbleTransition(true);
@@ -95,7 +90,7 @@ function App() {
         },
         body: JSON.stringify({
           url: finalBookUrl,
-          local_filename: finalLocalFilename,
+          local_filename: defaultLocalFilename,
           target_chunk_size: targetChunkSize,
           sentence_overlap: sentenceOverlap,
           small_paragraph_length: smallParagraphLength,
@@ -116,6 +111,12 @@ function App() {
       if (process.env.REACT_APP_ENV === 'dev') {
         console.log('Book data uploaded successfully:', data);
       }
+
+      // Store book metadata from API response
+      setLocalFilename(data.filename || '');
+      setBookTitle(data.book_title || '');
+      setBookAuthor(data.book_author || '');
+
       setLoadingProgress(100);
 
       // Show "Ready!" message
@@ -373,19 +374,6 @@ function App() {
                 <span className="input-hint">Leave empty to try "The Wizard of Oz"</span>
               </div>
 
-              <div className="form-group">
-                <label className="input-label">Book Name</label>
-                <input
-                  type="text"
-                  value={localFilename}
-                  onChange={(e) => setLocalFilename(e.target.value)}
-                  placeholder={defaultLocalFilename}
-                  className="search-input"
-                  disabled={loading}
-                />
-                <span className="input-hint">A friendly name for your book</span>
-              </div>
-
               {devMode && (
                 <>
                   <div className="form-group">
@@ -515,7 +503,10 @@ function App() {
                     <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
                   </svg>
                   <span className="book-name">
-                    {localFilename.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                    {bookTitle && bookTitle !== 'Unknown Title' ? bookTitle : localFilename.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                    {bookAuthor && bookAuthor !== 'Unknown Author' && (
+                      <span className="book-author"> by {bookAuthor}</span>
+                    )}
                   </span>
                 </div>
                 <form onSubmit={handleQuery} className="search-form">
