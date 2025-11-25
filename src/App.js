@@ -609,7 +609,7 @@ function App() {
                       <div key={index} className="result-card">
                         <div className="result-header">
                           <span className="chapter-info">
-                            Chapter: {result.data.chapter_number_raw} - {result.data.chapter_name}
+                            Chapter: {result.data.chapter_number} - {result.data.chapter_title}
                           </span>
                           <div className="badges-container">
                             {result.data.book_progress_percent !== undefined && (
@@ -640,7 +640,7 @@ function App() {
                       <div key={index} className="result-card">
                         <div className="result-header">
                           <span className="chapter-info">
-                            Chapter: {result.data.chapter_number_raw} - {result.data.chapter_name}
+                            Chapter: {result.data.chapter_number} - {result.data.chapter_title}
                           </span>
                           <div className="badges-container">
                             {result.data.book_progress_percent !== undefined && (
@@ -671,7 +671,7 @@ function App() {
                   <div key={index} className="result-card">
                     <div className="result-header">
                       <span className="chapter-info">
-                        Chapter: {result.data.chapter_number_raw} - {result.data.chapter_name}
+                        Chapter: {result.data.chapter_number} - {result.data.chapter_title}
                       </span>
                       <div className="badges-container">
                         {result.data.book_progress_percent !== undefined && (
