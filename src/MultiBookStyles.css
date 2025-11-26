@@ -1,0 +1,457 @@
+/* Multi-book URL input styles */
+.url-input-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.url-input-row .search-input {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.remove-url-button {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+  color: #94a3b8;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.remove-url-button:hover {
+  background: #fee;
+  border-color: #fca5a5;
+  color: #ef4444;
+}
+
+.remove-url-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.add-url-button {
+  width: 100%;
+  padding: 10px 16px;
+  border: 2px dashed #c7d2fe;
+  background: transparent;
+  border-radius: 8px;
+  color: #6366f1;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.add-url-button:hover {
+  background: #eef2ff;
+  border-color: #6366f1;
+}
+
+.add-url-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Book progress display */
+.books-progress-container {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.book-progress-item {
+  background: white;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.book-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.book-progress-label {
+  font-weight: 500;
+  color: #1e293b;
+  font-size: 14px;
+}
+
+.book-status {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.book-status.pending {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.book-status.processing {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.book-status.complete {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.book-status.error {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.book-error-text {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #dc2626;
+  margin-bottom: 0;
+}
+
+/* Multiple books display */
+.books-list-display {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: white;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  border: 1px solid #e2e8f0;
+  animation: slideInFromTop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.books-names {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.book-item {
+  display: flex;
+  align-items: center;
+}
+
+.book-item .book-name {
+  font-size: 15px;
+}
+
+/* Update existing book-title-display to match */
+.book-title-display,
+.books-list-display {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .url-input-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .remove-url-button {
+    width: 100%;
+  }
+
+  .books-list-display {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .book-item .book-name {
+    font-size: 14px;
+  }
+}
+
+/* Book source badge in results */
+.book-source-badge {
+  display: inline-block;
+  background: #eef2ff;
+  color: #6366f1;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-right: 8px;
+  margin-bottom: 4px;
+}
+
+.chapter-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Add Books Toggle Button */
+.add-books-button-container {
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.add-books-toggle-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+}
+
+.add-books-toggle-button:hover {
+  background: #4f46e5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.add-books-toggle-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.plus-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Book Upload Form */
+.book-upload-form {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.book-input-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.collapse-button {
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.collapse-button:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.collapse-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Query Form Spacing */
+.query-form-main {
+  margin-top: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.query-input-group {
+  position: relative;
+  flex: 1;
+}
+
+.query-input-group .query-input {
+  padding-right: 52px;
+}
+
+/* Top K Input - Below Search Bar */
+.topk-input-below {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.topk-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.topk-input {
+  padding: 10px 12px;
+  font-size: 15px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.topk-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.topk-input:disabled {
+  background: #f8fafc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Plus Button - Inside Input on Right */
+.plus-button-inline {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  background: #6366f1;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  z-index: 2;
+  padding: 0;
+}
+
+.plus-button-inline:hover {
+  background: #4f46e5;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.plus-button-inline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: translateY(-50%);
+}
+
+.plus-button-inline .plus-icon {
+  width: 20px;
+  height: 20px;
+  color: white;
+}
+
+/* Add Books Tooltip */
+.add-books-tooltip {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(100% + 12px);
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.add-books-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(0, 0, 0, 0.85);
+}
+
+/* Show tooltip ONLY on hover or when it has the 'show' class (input focused) */
+.plus-button-inline:hover .add-books-tooltip,
+.add-books-tooltip.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Adjust query input padding */
+.query-input-group .query-input {
+  padding-left: 16px;
+}
+
+/* Book Modal Content */
+.book-modal-content {
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.book-upload-form {
+  margin-top: 20px;
+}
+
+.book-upload-form .form-group {
+  margin-bottom: 16px;
+}
+
+.book-upload-form .search-button {
+  width: 100%;
+  margin-top: 8px;
+}

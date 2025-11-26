@@ -1,0 +1,297 @@
+/* Inline Book Processing Progress - Sleek and Slim Design */
+.inline-books-progress {
+  margin: 0 0 24px 0;
+  padding: 0 16px;
+  background: transparent;
+  border-radius: 8px;
+  border: none;
+  max-width: 100%;
+  animation: fadeInUp 0.3s ease;
+}
+
+.inline-books-progress.fade-out {
+  animation: fadeOutDown 0.5s ease forwards;
+}
+
+@keyframes fadeOutDown {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.inline-progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inline-book-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: transparent;
+  border-radius: 6px;
+  border: none;
+  transition: all 0.3s ease;
+  min-height: 40px;
+}
+
+.inline-book-number {
+  font-weight: 500;
+  color: #64748b;
+  font-size: 14px;
+  min-width: 60px;
+}
+
+.inline-book-status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+/* Floating Book Icon - Smaller and sleeker */
+.floating-book-icon {
+  position: relative;
+  width: 18px;
+  height: 24px;
+  animation: bookFloat 2s ease-in-out infinite;
+}
+
+@keyframes bookFloat {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-4px) rotate(2deg);
+  }
+}
+
+.floating-book-icon .book-cover {
+  position: absolute;
+  width: 14px;
+  height: 24px;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  border-radius: 1.5px;
+  left: 2px;
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.25);
+}
+
+.floating-book-icon .book-spine {
+  position: absolute;
+  width: 2px;
+  height: 24px;
+  background: linear-gradient(180deg, #4338ca 0%, #3730a3 100%);
+  border-radius: 1.5px 0 0 1.5px;
+  left: 0;
+}
+
+/* Check Icon - Same size as book icon to maintain space */
+.check-icon-container {
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.check-icon {
+  width: 24px;
+  height: 24px;
+  color: #6366f1;
+  stroke-width: 3;
+  animation: checkDraw 0.5s ease forwards, checkPop 0.3s ease forwards;
+  stroke-dasharray: 20;
+  stroke-dashoffset: 20;
+}
+
+@keyframes checkDraw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes checkPop {
+  0% {
+    transform: scale(0.8);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Static Book Icon - Appears after checkmark */
+.static-book-icon {
+  position: relative;
+  width: 18px;
+  height: 24px;
+  animation: bookFadeIn 0.5s ease 0.3s both;
+}
+
+@keyframes bookFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8) rotate(-90deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+.static-book-icon .book-cover {
+  position: absolute;
+  width: 14px;
+  height: 24px;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  border-radius: 1.5px;
+  left: 2px;
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.25);
+}
+
+.static-book-icon .book-spine {
+  position: absolute;
+  width: 2px;
+  height: 24px;
+  background: linear-gradient(180deg, #4338ca 0%, #3730a3 100%);
+  border-radius: 1.5px 0 0 1.5px;
+  left: 0;
+}
+
+/* Error Icon - Smaller */
+.error-icon-container {
+  width: 24px;
+  height: 24px;
+  background: #ef4444;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: errorShake 0.4s ease;
+}
+
+@keyframes errorShake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+}
+
+.error-icon {
+  width: 14px;
+  height: 14px;
+  color: white;
+}
+
+.inline-error-text {
+  font-size: 12px;
+  color: #ef4444;
+  font-weight: 500;
+  flex: 1;
+}
+
+/* Loading Notification - Appears above books list */
+.loading-notification {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(79, 70, 229, 0.12) 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  animation: notificationSlideIn 0.4s ease;
+  max-width: 100%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.loading-notification.fade-out {
+  animation: fadeOutUp 0.5s ease forwards;
+}
+
+@keyframes fadeOutUp {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes notificationSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.loading-notification .loading-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(99, 102, 241, 0.2);
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.loading-notification .encouraging-message {
+  font-size: 14px;
+  color: #4338ca;
+  font-weight: 500;
+  margin: 0;
+  animation: messageFade 0.5s ease;
+}
+
+/* Overall Loading Indicator - Old styles removed */
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes messageFade {
+  from {
+    opacity: 0;
+    transform: translateX(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

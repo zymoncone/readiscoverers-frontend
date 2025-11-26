@@ -1,17 +1,15 @@
 import { useState, useEffect } from 'react';
 import './App.css';
+import './MultiBookStyles.css';
+import './InlineProgress.css';
 import BackgroundAnimation from './BackgroundAnimation';
-import { defaultLocalFilename, defaultBookUrl } from './constants';
+import { defaultBookUrl } from './constants';
 
 function App() {
-  // Step management
-  const [step, setStep] = useState('book-upload'); // 'book-upload', 'transitioning', or 'query'
-
   // Book upload state
-  const [bookUrl, setBookUrl] = useState('');
-  const [localFilename, setLocalFilename] = useState('');
-  const [bookTitle, setBookTitle] = useState('');
-  const [bookAuthor, setBookAuthor] = useState('');
+  const [bookUrls, setBookUrls] = useState(['']); // Array of URLs
+  const [books, setBooks] = useState([]); // Array of {filename, title, author, url}
+  const [bookUploadStatuses, setBookUploadStatuses] = useState([]); // Track individual book progress
   const [targetChunkSize, setTargetChunkSize] = useState(800);
   const [sentenceOverlap, setSentenceOverlap] = useState(2);
   const [smallParagraphLength, setSmallParagraphLength] = useState(200);
@@ -23,33 +21,43 @@ function App() {
 
   // UI state
   const [loading, setLoading] = useState(false);
-  const [loadingProgress, setLoadingProgress] = useState(0);
   const [response, setResponse] = useState(null);
   const [originalResponse, setOriginalResponse] = useState(null);
   const [error, setError] = useState(null);
   const [devMode, setDevMode] = useState(false);
-  const [showBubbleTransition, setShowBubbleTransition] = useState(false);
   const [isUploadingBook, setIsUploadingBook] = useState(false);
-  const [showReady, setShowReady] = useState(false);
-  const [readyComplete, setReadyComplete] = useState(false);
+  const [currentEncouragingMessage, setCurrentEncouragingMessage] = useState(0);
   const [loadingPhase, setLoadingPhase] = useState(null); // 'model' or 'search'
   const [modelResponse, setModelResponse] = useState(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showBookInputs, setShowBookInputs] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const [showCompletedBooks, setShowCompletedBooks] = useState(false);
+  const [showCheckmark, setShowCheckmark] = useState(false);
 
-  // Progress bar simulation for book upload
+  // Encouraging messages for book processing
+  const encouragingMessages = [
+    "Processing your books with AI...",
+    "This may take a minute, hang tight!",
+    "Creating embeddings for better search...",
+    "Almost there, analyzing content...",
+    "Building your book's search index..."
+  ];
+
+  // Rotate encouraging messages while processing
   useEffect(() => {
     let interval;
     if (isUploadingBook) {
-      setLoadingProgress(0);
       interval = setInterval(() => {
-        setLoadingProgress(prev => {
-          if (prev >= 99) return prev; // Cap at 99% until response
-          return prev + 3;
-        });
-      }, 800); // Update every 800ms
+        setCurrentEncouragingMessage(prev => (prev + 1) % encouragingMessages.length);
+      }, 4000); // Change message every 4 seconds
+    } else {
+      setCurrentEncouragingMessage(0);
     }
     return () => clearInterval(interval);
-  }, [isUploadingBook]);
+  }, [isUploadingBook, encouragingMessages.length]);
+
+  // No longer using single progress bar - tracking individual book progress
 
   const getApiUrl = (endpoint) => {
     const isDev = (process.env.REACT_APP_ENV === 'dev');
@@ -61,36 +69,24 @@ function App() {
     return isDev ? `${baseUrl}${endpoint}` : `${baseUrl}${endpoint}?key=${process.env.REACT_APP_API_KEY}`;
   };
 
-  const handleBookUpload = async (e) => {
-    e.preventDefault();
+  const processBook = async (url, index) => {
+    const apiUrl = getApiUrl('/v1/book-data');
 
-    // Use defaults if fields are empty
-    const finalBookUrl = bookUrl.trim() || defaultBookUrl;
-
-    // Immediately trigger the bubble and step transition
-    setShowBubbleTransition(true);
-    setTimeout(() => {
-      setStep('query');
-      setShowBubbleTransition(false);
-    }, 1200); // Match CSS animation duration
-
-    setLoading(true);
-    setIsUploadingBook(true);
-    setError(null);
-    setResponse(null);
-    setReadyComplete(false); // Reset ready completion status
+    // Update status to processing
+    setBookUploadStatuses(prev => {
+      const newStatuses = [...prev];
+      newStatuses[index] = { status: 'processing', progress: 0, error: null };
+      return newStatuses;
+    });
 
     try {
-      const apiUrl = getApiUrl('/v1/book-data');
-
       const res = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          url: finalBookUrl,
-          local_filename: defaultLocalFilename,
+          url: url,
           target_chunk_size: targetChunkSize,
           sentence_overlap: sentenceOverlap,
           small_paragraph_length: smallParagraphLength,
@@ -112,28 +108,85 @@ function App() {
         console.log('Book data uploaded successfully:', data);
       }
 
-      // Store book metadata from API response
-      setLocalFilename(data.filename || '');
-      setBookTitle(data.book_title || '');
-      setBookAuthor(data.book_author || '');
+      // Update status to complete
+      setBookUploadStatuses(prev => {
+        const newStatuses = [...prev];
+        newStatuses[index] = { status: 'complete', progress: 100, error: null };
+        return newStatuses;
+      });
 
-      setLoadingProgress(100);
-
-      // Show "Ready!" message
-      setTimeout(() => {
-        setShowReady(true);
-        setTimeout(() => {
-          setShowReady(false);
-          setReadyComplete(true); // Mark that ready animation has completed
-        }, 1500); // Show for 1.5 seconds
-      }, 300);
+      // Add book to the books array
+      return {
+        filename: data.filename || '',
+        title: data.book_title || '',
+        author: data.book_author || '',
+        url: url
+      };
 
     } catch (err) {
       console.error('Book data error:', err);
-      setError(err.message || 'An unknown error occurred during book upload or parsing');
-      // If there's an error, revert back to book-upload step
-      setStep('book-upload');
-      setShowBubbleTransition(false);
+      setBookUploadStatuses(prev => {
+        const newStatuses = [...prev];
+        newStatuses[index] = { status: 'error', progress: 0, error: err.message };
+        return newStatuses;
+      });
+      return null;
+    }
+  };
+
+  const handleBookUpload = async (e) => {
+    e.preventDefault();
+
+    // Filter out empty URLs and use default if all empty
+    let finalUrls = bookUrls.filter(url => url.trim());
+    if (finalUrls.length === 0) {
+      finalUrls = [defaultBookUrl];
+    }
+
+    // Collapse book inputs after submission
+    setShowBookInputs(false);
+
+    setLoading(true);
+    setIsUploadingBook(true);
+    setError(null);
+    setResponse(null);
+    setBooks([]);
+    setShowCompletedBooks(false);
+    setShowCheckmark(false);
+
+    // Initialize statuses for all books
+    setBookUploadStatuses(finalUrls.map(() => ({ status: 'pending', progress: 0, error: null })));
+
+    try {
+      // Process all books asynchronously
+      const bookPromises = finalUrls.map((url, index) => processBook(url, index));
+      const results = await Promise.all(bookPromises);
+
+      // Filter out failed uploads
+      const successfulBooks = results.filter(book => book !== null);
+
+      if (successfulBooks.length === 0) {
+        throw new Error('All book uploads failed');
+      }
+
+      setBooks(successfulBooks);
+
+      // Show completed books animation with staged transitions
+      // Wait 1.2s to let checkmarks display and animate
+      setTimeout(() => {
+        setShowCompletedBooks(true);
+        // Show checkmark for 2 seconds before transitioning to open book
+        setTimeout(() => {
+          setShowCheckmark(true);
+          setTimeout(() => {
+            setShowCheckmark(false);
+          }, 2000);
+        }, 800);
+      }, 1200);
+
+    } catch (err) {
+      console.error('Book upload error:', err);
+      setError(err.message || 'An error occurred during book upload');
     } finally {
       setLoading(false);
       setIsUploadingBook(false);
@@ -217,7 +270,7 @@ function App() {
             },
             body: JSON.stringify({
               query: enhancedQuery,
-              local_filename: localFilename,
+              filenames: books.map(book => book.filename),
               top_k: topK,
               query_id: queryId,
               enhanced_query: true
@@ -230,7 +283,7 @@ function App() {
             },
             body: JSON.stringify({
               query: query,
-              local_filename: localFilename,
+              filenames: books.map(book => book.filename),
               top_k: topK,
               query_id: queryId,
               enhanced_query: false
@@ -267,7 +320,7 @@ function App() {
             },
             body: JSON.stringify({
               query: enhancedQuery,
-              local_filename: localFilename,
+              filenames: books.map(book => book.filename),
               top_k: topK,
               query_id: queryId,
               enhanced_query: true
@@ -297,229 +350,296 @@ function App() {
     }
   };
 
-
   return (
     <div className="App">
       <BackgroundAnimation />
 
-      {/* Floating Dev Toggle - always visible */}
-      <div className="dev-toggle-floating">
-        <label className="toggle-label">
-          <input
-            type="checkbox"
-            checked={devMode}
-            onChange={(e) => setDevMode(e.target.checked)}
-          />
-          <span className="toggle-slider"></span>
-          <span className="toggle-text">Dev Mode</span>
-        </label>
-      </div>
+      {/* Corner Dev Toggle - small and unobtrusive */}
+      <button
+        className="dev-toggle-corner"
+        onClick={() => setDevMode(!devMode)}
+        title="Toggle Dev Mode"
+        type="button"
+      >
+        <span className={`dev-indicator ${devMode ? 'active' : ''}`}></span>
+      </button>
 
-      {showBubbleTransition && (
-        <div className="bubble-transition">
-          <div className="bubble"></div>
+      {showInfoModal && (
+        <div className="modal-overlay" onClick={() => setShowInfoModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowInfoModal(false)}>×</button>
+            <h3>Search Inside Your Favorite Books</h3>
+            <p className="modal-description">
+              Upload any book and search through its pages with AI-powered semantic search.
+              Find passages, quotes, and ideas even if you don't remember the exact words.
+            </p>
+            <h4>How it works:</h4>
+            <ol className="steps-list">
+              <li><span className="step-number">1</span> Click the + button to add book URLs (Project Gutenberg works great!)</li>
+              <li><span className="step-number">2</span> Our AI processes and creates searchable embeddings from the text</li>
+              <li><span className="step-number">3</span> Ask questions naturally—find passages even without exact words</li>
+            </ol>
+          </div>
         </div>
       )}
 
-      <div className={`container ${step === 'query' && !response ? 'minimal' : ''}`}>
-        {step === 'book-upload' && (
+      <div className={`container ${!response ? 'minimal' : ''}`}>
+        {/* Slogan with controls underneath */}
+        {!response && books.length === 0 && !isUploadingBook && (
           <>
-            <button
-              className="info-button-floating"
-              onClick={() => setShowInfoModal(true)}
-              type="button"
-            >
-              <svg className="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <path d="M12 16v-4"></path>
-                <circle cx="12" cy="8" r="0.5" fill="currentColor"></circle>
-              </svg>
-              How it works
-            </button>
-
-            {showInfoModal && (
-              <div className="modal-overlay" onClick={() => setShowInfoModal(false)}>
-                <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                  <button className="modal-close" onClick={() => setShowInfoModal(false)}>×</button>
-                  <h3>Search Inside Your Favorite Books</h3>
-                  <p className="modal-description">
-                    Upload any book and search through its pages with AI-powered semantic search.
-                    Find passages, quotes, and ideas even if you don't remember the exact words.
-                  </p>
-                  <h4>How it works:</h4>
-                  <ol className="steps-list">
-                    <li><span className="step-number">1</span> Provide a link to a book (try Project Gutenberg!)</li>
-                    <li><span className="step-number">2</span> Give it a memorable name</li>
-                    <li><span className="step-number">3</span> Search through the pages naturally</li>
-                  </ol>
-                </div>
-              </div>
-            )}
-
-            <div className="main-title-section">
-              <h2 className="main-title">Provide a book, ask anything.</h2>
-            </div>
-
-            <form onSubmit={handleBookUpload} className="search-form">
-              <div className="form-group">
-                <label className="input-label">Book URL</label>
-                <input
-                  type="text"
-                  value={bookUrl}
-                  onChange={(e) => setBookUrl(e.target.value)}
-                  placeholder={defaultBookUrl}
-                  className="search-input"
-                  disabled={loading}
-                />
-                <span className="input-hint">Leave empty to try "The Wizard of Oz"</span>
-              </div>
-
-              {devMode && (
-                <>
-                  <div className="form-group">
-                    <label className="input-label">
-                      Target Chunk Size: {targetChunkSize}
-                    </label>
-                    <input
-                      type="number"
-                      value={targetChunkSize}
-                      onChange={(e) => setTargetChunkSize(Number(e.target.value))}
-                      className="search-input"
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="input-label">
-                      Sentence Overlap: {sentenceOverlap}
-                    </label>
-                    <input
-                      type="number"
-                      value={sentenceOverlap}
-                      onChange={(e) => setSentenceOverlap(Number(e.target.value))}
-                      className="search-input"
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="input-label">
-                      Small Paragraph Length: {smallParagraphLength}
-                    </label>
-                    <input
-                      type="number"
-                      value={smallParagraphLength}
-                      onChange={(e) => setSmallParagraphLength(Number(e.target.value))}
-                      className="search-input"
-                      disabled={loading}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="input-label">
-                      Small Paragraph Overlap: {smallParagraphOverlap}
-                    </label>
-                    <input
-                      type="number"
-                      value={smallParagraphOverlap}
-                      onChange={(e) => setSmallParagraphOverlap(Number(e.target.value))}
-                      className="search-input"
-                      disabled={loading}
-                    />
-                  </div>
-                </>
-              )}
-
+            <h1 className="landing-slogan">
+              Read it long ago?<br /><span className="slogan-highlight">Readiscover</span> it in seconds.
+            </h1>
+            <div className="landing-controls">
               <button
-                type="submit"
-                className="search-button"
-                disabled={loading}
+                className="info-button-inline"
+                onClick={() => setShowInfoModal(true)}
+                type="button"
               >
-                {loading ? 'Processing...' : 'Start Reading'}
+                <svg className="info-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M12 16v-4"></path>
+                  <circle cx="12" cy="8" r="0.5" fill="currentColor"></circle>
+                </svg>
+                How it works
               </button>
-            </form>
-
-            {loading && (
-              <div className="progress-container">
-                <div className="progress-bar">
-                  <div
-                    className="progress-fill"
-                    style={{ width: `${loadingProgress}%` }}
-                  ></div>
-                </div>
-                <p className="progress-text">{loadingProgress}% - Processing book...</p>
-              </div>
-            )}
+            </div>
           </>
         )}
 
-        {step === 'query' && (
-          <>
-            {(isUploadingBook || showReady || !readyComplete) ? (
-              <div className="embeddings-loading">
-                {!showReady ? (
-                  <>
-                    <div className="embeddings-icon">
-                      <div className="floating-particles">
-                        <span className="particle"></span>
-                        <span className="particle"></span>
-                        <span className="particle"></span>
-                        <span className="particle"></span>
-                        <span className="particle"></span>
-                      </div>
-                      <div className="book-icon">
-                        <div className="book-cover"></div>
-                        <div className="book-spine"></div>
-                      </div>
-                    </div>
-                    <h3 className="embeddings-title">Creating Embeddings...</h3>
-                    <p className="embeddings-description">Processing your book with AI</p>
-                    <div className="progress-container">
-                      <div className="progress-bar">
-                        <div
-                          className="progress-fill"
-                          style={{ width: `${loadingProgress}%` }}
-                        ></div>
-                      </div>
-                      <p className="progress-text">{loadingProgress}%</p>
-                    </div>
-                  </>
+        {/* Always show search interface */}
+        <>
+            {/* Show loaded books if any */}
+            {books.length > 0 && !isUploadingBook && (
+              <div className="books-list-display">
+                {showCheckmark ? (
+                  <svg className="checkmark-icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
                 ) : (
-                  <div className="ready-message">
-                    <div className="ready-icon">
-                      <div className="checkmark-circle">
-                        <svg viewBox="0 0 52 52" className="checkmark">
-                          <circle className="checkmark-circle-bg" cx="26" cy="26" r="25" fill="none"/>
-                          <path className="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
-                        </svg>
-                      </div>
-                    </div>
-                    <h2 className="ready-text">Ready!</h2>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
-                <div className="book-title-display">
-                  <svg className="book-icon-small" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg className="book-icon-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
                     <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
                   </svg>
-                  <span className="book-name">
-                    {bookTitle && bookTitle !== 'Unknown Title' ? bookTitle : localFilename.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                    {bookAuthor && bookAuthor !== 'Unknown Author' && (
-                      <span className="book-author"> by {bookAuthor}</span>
-                    )}
-                  </span>
+                )}
+                <div className="books-names">
+                  {books.map((book, index) => (
+                    <div key={index} className="book-item">
+                      <span className="book-name">
+                        {book.title && book.title !== 'Unknown Title'
+                          ? book.title
+                          : book.filename.replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                        {book.author && book.author !== 'Unknown Author' && (
+                          <span className="book-author"> by {book.author}</span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                <form onSubmit={handleQuery} className="search-form">
+              </div>
+            )}
+
+            {/* Overall Loading Indicator - Notification style above books */}
+            {isUploadingBook && (
+              <div className={`loading-notification ${showCompletedBooks ? 'fade-out' : ''}`}>
+                <div className="loading-spinner"></div>
+                <p className="encouraging-message">{encouragingMessages[currentEncouragingMessage]}</p>
+              </div>
+            )}
+
+            {/* Book Processing Progress - Only shown while uploading */}
+            {isUploadingBook && bookUploadStatuses.length > 0 && (
+              <div className={`inline-books-progress ${showCompletedBooks ? 'fade-out' : ''}`}>
+                <div className="inline-progress-list">
+                  {bookUploadStatuses.map((status, index) => {
+                    // Extract book name from URL (last segment before any query params)
+                    const url = bookUrls[index] || '';
+                    const urlParts = url.split('/');
+                    const lastPart = urlParts[urlParts.length - 1];
+                    const bookName = lastPart.split('?')[0] || `Book ${index + 1}`;
+
+                    return (
+                      <div key={index} className="inline-book-item">
+                        <div className="inline-book-status-icon">
+                          {status.status === 'complete' && !showCompletedBooks ? (
+                            <div className="check-icon-container">
+                              <svg className="check-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                              </svg>
+                            </div>
+                          ) : status.status === 'complete' && showCompletedBooks ? (
+                            <div className="static-book-icon">
+                              <div className="book-cover"></div>
+                              <div className="book-spine"></div>
+                            </div>
+                          ) : status.status === 'error' ? (
+                            <div className="error-icon-container">
+                              <svg className="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="15" y1="9" x2="9" y2="15"></line>
+                                <line x1="9" y1="9" x2="15" y2="15"></line>
+                              </svg>
+                            </div>
+                          ) : (
+                            <div className="floating-book-icon">
+                              <div className="book-cover"></div>
+                              <div className="book-spine"></div>
+                            </div>
+                          )}
+                        </div>
+                        <span className="inline-book-number">{bookName}</span>
+                        {status.error && (
+                          <span className="inline-error-text">{status.error}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}            {/* Collapsible Book URL Input Section - Now a Modal */}
+            {showBookInputs && (
+              <div className="modal-overlay" onClick={() => setShowBookInputs(false)}>
+                <div className="modal-content book-modal-content" onClick={(e) => e.stopPropagation()}>
+                  <button className="modal-close" onClick={() => setShowBookInputs(false)}>×</button>
+                  <h3>Add Books</h3>
+                  <form onSubmit={handleBookUpload} className="book-upload-form">
+                    <div className="form-group">
+                      <label className="input-label">Book URLs</label>
+                      {bookUrls.map((url, index) => (
+                    <div key={index} className="url-input-row">
+                      <input
+                        type="text"
+                        value={url}
+                        onChange={(e) => {
+                          const newUrls = [...bookUrls];
+                          newUrls[index] = e.target.value;
+                          setBookUrls(newUrls);
+                        }}
+                        placeholder={index === 0 ? defaultBookUrl : "Another book URL..."}
+                        className="search-input"
+                        disabled={loading}
+                      />
+                      {bookUrls.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newUrls = bookUrls.filter((_, i) => i !== index);
+                            setBookUrls(newUrls);
+                          }}
+                          className="remove-url-button"
+                          disabled={loading}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setBookUrls([...bookUrls, ''])}
+                    className="add-url-button"
+                    disabled={loading}
+                  >
+                    + Add another book
+                  </button>
+                  <span className="input-hint">Leave first empty to try "The Wizard of Oz"</span>
+                </div>
+
+                {devMode && (
+                  <>
+                    <div className="form-group">
+                      <label className="input-label">
+                        Target Chunk Size: {targetChunkSize}
+                      </label>
+                      <input
+                        type="number"
+                        value={targetChunkSize}
+                        onChange={(e) => setTargetChunkSize(Number(e.target.value))}
+                        className="search-input"
+                        disabled={loading}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="input-label">
+                        Sentence Overlap: {sentenceOverlap}
+                      </label>
+                      <input
+                        type="number"
+                        value={sentenceOverlap}
+                        onChange={(e) => setSentenceOverlap(Number(e.target.value))}
+                        className="search-input"
+                        disabled={loading}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="input-label">
+                        Small Paragraph Length: {smallParagraphLength}
+                      </label>
+                      <input
+                        type="number"
+                        value={smallParagraphLength}
+                        onChange={(e) => setSmallParagraphLength(Number(e.target.value))}
+                        className="search-input"
+                        disabled={loading}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label className="input-label">
+                        Small Paragraph Overlap: {smallParagraphOverlap}
+                      </label>
+                      <input
+                        type="number"
+                        value={smallParagraphOverlap}
+                        onChange={(e) => setSmallParagraphOverlap(Number(e.target.value))}
+                        className="search-input"
+                        disabled={loading}
+                      />
+                    </div>
+                  </>
+                )}
+
+                    <button
+                      type="submit"
+                      className="search-button"
+                      disabled={loading}
+                    >
+                      {loading ? 'Processing...' : 'Process Books'}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}            {/* Main Search Query Form - Always Visible */}
+            <form onSubmit={handleQuery} className="search-form query-form-main">
               <div className="form-group query-input-group">
                 <input
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
+                  onFocus={() => setIsInputFocused(true)}
+                  onBlur={() => setIsInputFocused(false)}
                   placeholder="Ask about themes, characters, or specific topics..."
                   className="search-input query-input"
                   disabled={loading}
                   autoFocus
                 />
+
+                <button
+                  type="button"
+                  onClick={() => setShowBookInputs(true)}
+                  className="plus-button-inline"
+                  disabled={loading}
+                >
+                  <svg className="plus-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  {books.length === 0 && (
+                    <div className={`add-books-tooltip ${isInputFocused ? 'show' : ''}`}>Add books to start</div>
+                  )}
+                </button>
+              </div>
+
+              {books.length > 0 && (
                 <button
                   type="submit"
                   className="send-button"
@@ -532,27 +652,27 @@ function App() {
                   </svg>
                   <span className="send-text">Send</span>
                 </button>
-              </div>
-
-              {devMode && (
-                <div className="form-group">
-                  <label className="input-label">
-                    Top K Results: {topK}
-                  </label>
-                  <input
-                    type="number"
-                    value={topK}
-                    onChange={(e) => setTopK(Number(e.target.value))}
-                    className="search-input"
-                    disabled={loading}
-                    min="1"
-                    max="10"
-                  />
-                </div>
               )}
             </form>
 
-            {loading && (
+            {devMode && books.length > 0 && (
+              <div className="topk-input-below">
+                <label className="topk-label">
+                  Top K: {topK}
+                </label>
+                <input
+                  type="number"
+                  value={topK}
+                  onChange={(e) => setTopK(Number(e.target.value))}
+                  className="topk-input"
+                  disabled={loading}
+                  min="1"
+                  max="10"
+                />
+              </div>
+            )}
+
+            {loading && loadingPhase && (
               <div className="search-loading">
                 <div className="search-dots">
                   <span className="dot"></span>
@@ -578,10 +698,7 @@ function App() {
                 </div>
               </div>
             )}
-              </>
-            )}
           </>
-        )}
 
         {error && (
           <div className="message error-message">
@@ -589,7 +706,7 @@ function App() {
           </div>
         )}
 
-        {response && step === 'query' && Array.isArray(response) && (
+        {response && Array.isArray(response) && (
           <>
             {devMode && originalResponse ? (
               <div className="comparison-container">
@@ -600,6 +717,11 @@ function App() {
                       <div key={index} className="result-card">
                         <div className="result-header">
                           <span className="chapter-info">
+                            {books.length > 1 && result.data.book_title && (
+                              <span className="book-source-badge">
+                                {result.data.book_title}
+                              </span>
+                            )}
                             Chapter: {result.data.chapter_number} - {result.data.chapter_title}
                           </span>
                           <div className="badges-container">
@@ -613,7 +735,7 @@ function App() {
                               </span>
                             )}
                             <span className="score-badge">
-                              {(result.data.score * 100).toFixed(1)}% match
+                              {(result.data.score * 100).toFixed(1)} score
                             </span>
                           </div>
                         </div>
@@ -631,6 +753,11 @@ function App() {
                       <div key={index} className="result-card">
                         <div className="result-header">
                           <span className="chapter-info">
+                            {books.length > 1 && result.data.book_title && (
+                              <span className="book-source-badge">
+                                {result.data.book_title}
+                              </span>
+                            )}
                             Chapter: {result.data.chapter_number} - {result.data.chapter_title}
                           </span>
                           <div className="badges-container">
@@ -644,7 +771,7 @@ function App() {
                               </span>
                             )}
                             <span className="score-badge">
-                              {(result.data.score * 100).toFixed(1)}% match
+                              {(result.data.score * 100).toFixed(1)} score
                             </span>
                           </div>
                         </div>
@@ -662,6 +789,11 @@ function App() {
                   <div key={index} className="result-card">
                     <div className="result-header">
                       <span className="chapter-info">
+                        {books.length > 1 && result.data.book_title && (
+                          <span className="book-source-badge">
+                            {result.data.book_title}
+                          </span>
+                        )}
                         Chapter: {result.data.chapter_number} - {result.data.chapter_title}
                       </span>
                       <div className="badges-container">
@@ -675,7 +807,7 @@ function App() {
                           </span>
                         )}
                         <span className="score-badge">
-                          {(result.data.score * 100).toFixed(1)}% match
+                          {(result.data.score * 100).toFixed(1)} score
                         </span>
                       </div>
                     </div>
