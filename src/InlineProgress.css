@@ -1,7 +1,7 @@
 /* Inline Book Processing Progress - Sleek and Slim Design */
 .inline-books-progress {
   margin: 0 0 24px 0;
-  padding: 0 16px;
+  padding: 0;
   background: transparent;
   border-radius: 8px;
   border: none;
@@ -45,7 +45,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
+  padding: 8px 6px;
   background: transparent;
   border-radius: 6px;
   border: none;

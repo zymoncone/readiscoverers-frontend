@@ -7,9 +7,11 @@ import { defaultBookUrl } from './constants';
 
 function App() {
   // Book upload state
-  const [bookUrls, setBookUrls] = useState(['']); // Array of URLs
+  const [bookUrlsInput, setBookUrlsInput] = useState(''); // Single comma-separated input
+  const [processingUrls, setProcessingUrls] = useState([]); // URLs currently being processed
   const [books, setBooks] = useState([]); // Array of {filename, title, author, url}
   const [bookUploadStatuses, setBookUploadStatuses] = useState([]); // Track individual book progress
+  const [bookTitles, setBookTitles] = useState([]); // Track book titles as they're received during processing
   const [targetChunkSize, setTargetChunkSize] = useState(800);
   const [sentenceOverlap, setSentenceOverlap] = useState(2);
   const [smallParagraphLength, setSmallParagraphLength] = useState(200);
@@ -31,9 +33,9 @@ function App() {
   const [modelResponse, setModelResponse] = useState(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showBookInputs, setShowBookInputs] = useState(false);
-  const [isInputFocused, setIsInputFocused] = useState(false);
   const [showCompletedBooks, setShowCompletedBooks] = useState(false);
   const [showCheckmark, setShowCheckmark] = useState(false);
+  const [expandedResults, setExpandedResults] = useState({}); // Track which results are expanded
 
   // Encouraging messages for book processing
   const encouragingMessages = [
@@ -56,6 +58,81 @@ function App() {
     }
     return () => clearInterval(interval);
   }, [isUploadingBook, encouragingMessages.length]);
+
+  // Helper function to highlight keywords within text
+  const highlightKeywords = (text, keywords) => {
+    if (!keywords || keywords.length === 0) return text;
+
+    // Create a regex pattern that matches any of the keywords (case-insensitive)
+    const keywordPattern = keywords
+      .map(keyword => keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) // Escape special regex characters
+      .join('|');
+    const regex = new RegExp(`(${keywordPattern})`, 'gi');
+
+    const parts = text.split(regex);
+    return parts.map((part, index) => {
+      // Check if this part matches any keyword
+      const isKeyword = keywords.some(keyword =>
+        part.toLowerCase() === keyword.toLowerCase()
+      );
+      if (isKeyword) {
+        return <strong key={index} className="keyword-highlight">{part}</strong>;
+      }
+      return part;
+    });
+  };
+
+  // Helper function to extract matched chunks with context
+  const getPreviewChunks = (matched_texts) => {
+    if (!matched_texts) return null;
+
+    const matchIndex = matched_texts.findIndex(chunk => chunk.is_match);
+    if (matchIndex === -1) return matched_texts;
+
+    // Get the matched chunk
+    const matchedChunk = matched_texts[matchIndex];
+
+    // Get context: previous and next chunks, but trim them to ~100 characters
+    const prevChunk = matchIndex > 0 ? matched_texts[matchIndex - 1] : null;
+    const nextChunk = matchIndex < matched_texts.length - 1 ? matched_texts[matchIndex + 1] : null;
+
+    const result = [];
+
+    // Add trimmed previous chunk (last ~100 chars) with ellipsis if needed
+    if (prevChunk) {
+      if (prevChunk.text.length > 100) {
+        result.push({ text: '...', is_match: false, is_ellipsis: true });
+        result.push({ text: prevChunk.text.slice(-100), is_match: false });
+      } else {
+        if (matchIndex > 0) {
+          result.push({ text: '...', is_match: false, is_ellipsis: true });
+        }
+        result.push({ text: prevChunk.text, is_match: false });
+      }
+    } else if (matchIndex > 0) {
+      result.push({ text: '...', is_match: false, is_ellipsis: true });
+    }
+
+    // Add the matched chunk
+    result.push(matchedChunk);
+
+    // Add trimmed next chunk (first ~100 chars) with ellipsis if needed
+    if (nextChunk) {
+      if (nextChunk.text.length > 100) {
+        result.push({ text: nextChunk.text.slice(0, 100), is_match: false });
+        result.push({ text: '...', is_match: false, is_ellipsis: true });
+      } else {
+        result.push({ text: nextChunk.text, is_match: false });
+        if (matchIndex < matched_texts.length - 1) {
+          result.push({ text: '...', is_match: false, is_ellipsis: true });
+        }
+      }
+    } else if (matchIndex < matched_texts.length - 1) {
+      result.push({ text: '...', is_match: false, is_ellipsis: true });
+    }
+
+    return result;
+  };
 
   // No longer using single progress bar - tracking individual book progress
 
@@ -108,6 +185,15 @@ function App() {
         console.log('Book data uploaded successfully:', data);
       }
 
+      // Update book title as soon as we have it
+      if (data.book_title) {
+        setBookTitles(prev => {
+          const newTitles = [...prev];
+          newTitles[index] = data.book_title;
+          return newTitles;
+        });
+      }
+
       // Update status to complete
       setBookUploadStatuses(prev => {
         const newStatuses = [...prev];
@@ -137,10 +223,38 @@ function App() {
   const handleBookUpload = async (e) => {
     e.preventDefault();
 
-    // Filter out empty URLs and use default if all empty
-    let finalUrls = bookUrls.filter(url => url.trim());
+    // Parse comma-separated URLs
+    const urlsText = bookUrlsInput.trim();
+
+    // Check if input contains commas for multiple URLs or is a single URL
+    let finalUrls;
+    if (!urlsText) {
+      // Use default if empty - different defaults for dev mode vs production
+      if (devMode) {
+        finalUrls = [
+          'https://www.gutenberg.org/cache/epub/55/pg55-images.html',
+          'https://www.gutenberg.org/cache/epub/54/pg54-images.html',
+          'https://www.gutenberg.org/cache/epub/33361/pg33361-images.html',
+          'https://www.gutenberg.org/cache/epub/22566/pg22566-images.html',
+          'https://www.gutenberg.org/cache/epub/26624/pg26624-images.html',
+          'https://www.gutenberg.org/cache/epub/41667/pg41667-images.html',
+          'https://www.gutenberg.org/cache/epub/32094/pg32094-images.html',
+          'https://www.gutenberg.org/cache/epub/75720/pg75720-images.html'
+        ];
+      } else {
+        finalUrls = [defaultBookUrl];
+      }
+    } else if (urlsText.includes(',')) {
+      // Split by comma and clean up
+      finalUrls = urlsText.split(',').map(url => url.trim()).filter(url => url);
+    } else {
+      // Single URL
+      finalUrls = [urlsText];
+    }
+
     if (finalUrls.length === 0) {
-      finalUrls = [defaultBookUrl];
+      setError('Please enter at least one valid URL');
+      return;
     }
 
     // Collapse book inputs after submission
@@ -153,9 +267,11 @@ function App() {
     setBooks([]);
     setShowCompletedBooks(false);
     setShowCheckmark(false);
+    setProcessingUrls(finalUrls); // Store URLs being processed
 
-    // Initialize statuses for all books
+    // Initialize statuses and titles for all books
     setBookUploadStatuses(finalUrls.map(() => ({ status: 'pending', progress: 0, error: null })));
+    setBookTitles(finalUrls.map(() => null)); // Initialize with null values
 
     try {
       // Process all books asynchronously
@@ -222,7 +338,7 @@ function App() {
             user_query: query
           }),
         }),
-        new Promise(resolve => setTimeout(resolve, 1500)) // Minimum 1.5s for model phase
+        new Promise(resolve => setTimeout(resolve, 0)) // Minimum for model phase
       ]);
 
       if (!modelRes.ok) {
@@ -361,23 +477,23 @@ function App() {
         title="Toggle Dev Mode"
         type="button"
       >
-        <span className={`dev-indicator ${devMode ? 'active' : ''}`}></span>
+        {devMode ? 'DevMode On' : 'DevMode Off'}
       </button>
 
       {showInfoModal && (
         <div className="modal-overlay" onClick={() => setShowInfoModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setShowInfoModal(false)}>×</button>
-            <h3>Search Inside Your Favorite Books</h3>
+            <h3>Search Your Favorite Books</h3>
             <p className="modal-description">
-              Upload any book and search through its pages with AI-powered semantic search.
-              Find passages, quotes, and ideas even if you don't remember the exact words.
+              Upload any book or series and explore its pages with AI-powered semantic search.
+              Ask questions in natural language and get back real passages and quotes straight from the text.
             </p>
             <h4>How it works:</h4>
             <ol className="steps-list">
               <li><span className="step-number">1</span> Click the + button to add book URLs (Project Gutenberg works great!)</li>
-              <li><span className="step-number">2</span> Our AI processes and creates searchable embeddings from the text</li>
-              <li><span className="step-number">3</span> Ask questions naturally—find passages even without exact words</li>
+              <li><span className="step-number">2</span> Our AI processes the text and builds searchable semantic embeddings.</li>
+              <li><span className="step-number">3</span> Ask anything naturally - every answer we return is a direct excerpt from the book, so you always know it’s real.</li>
             </ol>
           </div>
         </div>
@@ -452,11 +568,16 @@ function App() {
               <div className={`inline-books-progress ${showCompletedBooks ? 'fade-out' : ''}`}>
                 <div className="inline-progress-list">
                   {bookUploadStatuses.map((status, index) => {
-                    // Extract book name from URL (last segment before any query params)
-                    const url = bookUrls[index] || '';
-                    const urlParts = url.split('/');
-                    const lastPart = urlParts[urlParts.length - 1];
-                    const bookName = lastPart.split('?')[0] || `Book ${index + 1}`;
+                    // Use book title if available, otherwise extract from URL
+                    let bookName;
+                    if (bookTitles[index]) {
+                      bookName = bookTitles[index];
+                    } else {
+                      const url = processingUrls[index] || '';
+                      const urlParts = url.split('/');
+                      const lastPart = urlParts[urlParts.length - 1];
+                      bookName = lastPart.split('?')[0] || `Book ${index + 1}`;
+                    }
 
                     return (
                       <div key={index} className="inline-book-item">
@@ -504,46 +625,17 @@ function App() {
                   <h3>Add Books</h3>
                   <form onSubmit={handleBookUpload} className="book-upload-form">
                     <div className="form-group">
-                      <label className="input-label">Book URLs</label>
-                      {bookUrls.map((url, index) => (
-                    <div key={index} className="url-input-row">
-                      <input
-                        type="text"
-                        value={url}
-                        onChange={(e) => {
-                          const newUrls = [...bookUrls];
-                          newUrls[index] = e.target.value;
-                          setBookUrls(newUrls);
-                        }}
-                        placeholder={index === 0 ? defaultBookUrl : "Another book URL..."}
-                        className="search-input"
+                      <label className="input-label">Book URLs (comma-separated for multiple books)</label>
+                      <textarea
+                        value={bookUrlsInput}
+                        onChange={(e) => setBookUrlsInput(e.target.value)}
+                        placeholder={`${defaultBookUrl}, https://www.example.com/my-fav-book.html, ...`}
+                        className="search-input book-urls-textarea"
                         disabled={loading}
+                        rows={4}
                       />
-                      {bookUrls.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newUrls = bookUrls.filter((_, i) => i !== index);
-                            setBookUrls(newUrls);
-                          }}
-                          className="remove-url-button"
-                          disabled={loading}
-                        >
-                          ×
-                        </button>
-                      )}
+                      <span className="input-hint">Leave empty to try "The Wonderful Wizard of Oz"</span>
                     </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setBookUrls([...bookUrls, ''])}
-                    className="add-url-button"
-                    disabled={loading}
-                  >
-                    + Add another book
-                  </button>
-                  <span className="input-hint">Leave first empty to try "The Wizard of Oz"</span>
-                </div>
 
                 {devMode && (
                   <>
@@ -615,11 +707,9 @@ function App() {
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  onFocus={() => setIsInputFocused(true)}
-                  onBlur={() => setIsInputFocused(false)}
                   placeholder="Ask about themes, characters, or specific topics..."
                   className="search-input query-input"
-                  disabled={loading}
+                  disabled={loading || books.length === 0}
                   autoFocus
                 />
 
@@ -633,8 +723,8 @@ function App() {
                     <line x1="12" y1="5" x2="12" y2="19"></line>
                     <line x1="5" y1="12" x2="19" y2="12"></line>
                   </svg>
-                  {books.length === 0 && (
-                    <div className={`add-books-tooltip ${isInputFocused ? 'show' : ''}`}>Add books to start</div>
+                  {books.length === 0 && !isUploadingBook && (
+                    <div className="add-books-tooltip show">Add books to start</div>
                   )}
                 </button>
               </div>
@@ -722,7 +812,7 @@ function App() {
                                 {result.data.book_title}
                               </span>
                             )}
-                            Chapter: {result.data.chapter_number} - {result.data.chapter_title}
+                            Chapter {result.data.chapter_number}: {result.data.chapter_title}
                           </span>
                           <div className="badges-container">
                             {result.data.book_progress_percent !== undefined && (
@@ -740,8 +830,30 @@ function App() {
                           </div>
                         </div>
                         <div className="result-text">
-                          {result.data.text}
+                          {result.data.matched_texts ? (
+                            (expandedResults[`enhanced-${index}`] ? result.data.matched_texts : getPreviewChunks(result.data.matched_texts))?.map((chunk, chunkIndex) =>
+                              chunk.is_match ? (
+                                <mark key={chunkIndex} className="highlight-match">
+                                  {highlightKeywords(chunk.text, modelResponse?.keywords)}
+                                </mark>
+                              ) : chunk.is_ellipsis ? (
+                                <span key={chunkIndex} className="ellipsis-text">{chunk.text} </span>
+                              ) : (
+                                <span key={chunkIndex}>{chunk.text} </span>
+                              )
+                            )
+                          ) : (
+                            result.data.text
+                          )}
                         </div>
+                        {result.data.matched_texts && !expandedResults[`enhanced-${index}`] && (
+                          <button
+                            className="view-in-book-button"
+                            onClick={() => setExpandedResults(prev => ({ ...prev, [`enhanced-${index}`]: true }))}
+                          >
+                            View in book
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -758,7 +870,7 @@ function App() {
                                 {result.data.book_title}
                               </span>
                             )}
-                            Chapter: {result.data.chapter_number} - {result.data.chapter_title}
+                            Chapter {result.data.chapter_number}: {result.data.chapter_title}
                           </span>
                           <div className="badges-container">
                             {result.data.book_progress_percent !== undefined && (
@@ -776,8 +888,30 @@ function App() {
                           </div>
                         </div>
                         <div className="result-text">
-                          {result.data.text}
+                          {result.data.matched_texts ? (
+                            (expandedResults[`original-${index}`] ? result.data.matched_texts : getPreviewChunks(result.data.matched_texts))?.map((chunk, chunkIndex) =>
+                              chunk.is_match ? (
+                                <mark key={chunkIndex} className="highlight-match">
+                                  {highlightKeywords(chunk.text, modelResponse?.keywords)}{' '}
+                                </mark>
+                              ) : chunk.is_ellipsis ? (
+                                <span key={chunkIndex} className="ellipsis-text">{chunk.text} </span>
+                              ) : (
+                                <span key={chunkIndex}>{chunk.text} </span>
+                              )
+                            )
+                          ) : (
+                            result.data.text
+                          )}
                         </div>
+                        {result.data.matched_texts && !expandedResults[`original-${index}`] && (
+                          <button
+                            className="view-in-book-button"
+                            onClick={() => setExpandedResults(prev => ({ ...prev, [`original-${index}`]: true }))}
+                          >
+                            View in book
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -794,7 +928,7 @@ function App() {
                             {result.data.book_title}
                           </span>
                         )}
-                        Chapter: {result.data.chapter_number} - {result.data.chapter_title}
+                        Chapter {result.data.chapter_number}: {result.data.chapter_title}
                       </span>
                       <div className="badges-container">
                         {result.data.book_progress_percent !== undefined && (
@@ -812,8 +946,30 @@ function App() {
                       </div>
                     </div>
                     <div className="result-text">
-                      {result.data.text}
+                      {result.data.matched_texts ? (
+                        (expandedResults[`result-${index}`] ? result.data.matched_texts : getPreviewChunks(result.data.matched_texts))?.map((chunk, chunkIndex) =>
+                          chunk.is_match ? (
+                            <mark key={chunkIndex} className="highlight-match">
+                              {highlightKeywords(chunk.text, modelResponse?.keywords)}{' '}
+                            </mark>
+                          ) : chunk.is_ellipsis ? (
+                            <span key={chunkIndex} className="ellipsis-text">{chunk.text} </span>
+                          ) : (
+                            <span key={chunkIndex}>{chunk.text} </span>
+                          )
+                        )
+                      ) : (
+                        result.data.text
+                      )}
                     </div>
+                    {result.data.matched_texts && !expandedResults[`result-${index}`] && (
+                      <button
+                        className="view-in-book-button"
+                        onClick={() => setExpandedResults(prev => ({ ...prev, [`result-${index}`]: true }))}
+                      >
+                        View in book
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

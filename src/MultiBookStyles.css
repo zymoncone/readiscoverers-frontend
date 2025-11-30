@@ -1,4 +1,12 @@
 /* Multi-book URL input styles */
+.book-urls-textarea {
+  width: 100%;
+  min-height: 100px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
 .url-input-row {
   display: flex;
   gap: 8px;
@@ -134,7 +142,7 @@
   padding: 16px;
   background: white;
   border-radius: 12px;
-  margin-bottom: 24px;
+  margin: 24px 0;
   border: 1px solid #e2e8f0;
   animation: slideInFromTop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -203,7 +211,6 @@
   font-size: 12px;
   font-weight: 600;
   margin-right: 8px;
-  margin-bottom: 4px;
 }
 
 .chapter-info {
