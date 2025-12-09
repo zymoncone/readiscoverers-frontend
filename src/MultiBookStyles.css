@@ -445,7 +445,7 @@
 
 /* Book Modal Content */
 .book-modal-content {
-  max-width: 600px;
+  max-width: 650px;
   max-height: 80vh;
   overflow-y: auto;
 }

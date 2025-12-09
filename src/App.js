@@ -3,7 +3,12 @@ import './App.css';
 import './MultiBookStyles.css';
 import './InlineProgress.css';
 import BackgroundAnimation from './BackgroundAnimation';
-import { defaultBookUrl } from './constants';
+import { defaultBookUrls,
+         targetChunkSize,
+         sentenceOverlap,
+         smallParagraphLength,
+         smallParagraphOverlap,
+         topK } from './constants';
 
 function App() {
   // Book upload state
@@ -12,21 +17,14 @@ function App() {
   const [books, setBooks] = useState([]); // Array of {filename, title, author, url}
   const [bookUploadStatuses, setBookUploadStatuses] = useState([]); // Track individual book progress
   const [bookTitles, setBookTitles] = useState([]); // Track book titles as they're received during processing
-  const [targetChunkSize, setTargetChunkSize] = useState(800);
-  const [sentenceOverlap, setSentenceOverlap] = useState(2);
-  const [smallParagraphLength, setSmallParagraphLength] = useState(200);
-  const [smallParagraphOverlap, setSmallParagraphOverlap] = useState(2);
 
   // Query state
   const [query, setQuery] = useState('');
-  const [topK, setTopK] = useState(3);
 
   // UI state
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState(null);
-  const [originalResponse, setOriginalResponse] = useState(null);
   const [error, setError] = useState(null);
-  const [devMode, setDevMode] = useState(false);
   const [isUploadingBook, setIsUploadingBook] = useState(false);
   const [currentEncouragingMessage, setCurrentEncouragingMessage] = useState(0);
   const [loadingPhase, setLoadingPhase] = useState(null); // 'model' or 'search'
@@ -230,20 +228,7 @@ function App() {
     let finalUrls;
     if (!urlsText) {
       // Use default if empty - different defaults for dev mode vs production
-      if (devMode) {
-        finalUrls = [
-          'https://www.gutenberg.org/cache/epub/55/pg55-images.html',
-          'https://www.gutenberg.org/cache/epub/54/pg54-images.html',
-          'https://www.gutenberg.org/cache/epub/33361/pg33361-images.html',
-          'https://www.gutenberg.org/cache/epub/22566/pg22566-images.html',
-          'https://www.gutenberg.org/cache/epub/26624/pg26624-images.html',
-          'https://www.gutenberg.org/cache/epub/41667/pg41667-images.html',
-          'https://www.gutenberg.org/cache/epub/32094/pg32094-images.html',
-          'https://www.gutenberg.org/cache/epub/75720/pg75720-images.html'
-        ];
-      } else {
-        finalUrls = [defaultBookUrl];
-      }
+      finalUrls = defaultBookUrls;
     } else if (urlsText.includes(',')) {
       // Split by comma and clean up
       finalUrls = urlsText.split(',').map(url => url.trim()).filter(url => url);
@@ -320,7 +305,6 @@ function App() {
     setLoading(true);
     setError(null);
     setResponse(null);
-    setOriginalResponse(null);
     setModelResponse(null);
 
     try {
@@ -376,90 +360,36 @@ function App() {
       // Generate a session ID
       const queryId = crypto.randomUUID();
 
-      // In dev mode, search with both enhanced and original query
-      if (devMode) {
-        const [enhancedSearchRes, originalSearchRes] = await Promise.all([
-          fetch(searchApiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              query: enhancedQuery,
-              filenames: books.map(book => book.filename),
-              top_k: topK,
-              query_id: queryId,
-              enhanced_query: true,
-              keywords: modelData?.keywords || []
-            }),
+      // Use enhanced query
+      const [searchRes] = await Promise.all([
+        fetch(searchApiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: enhancedQuery,
+            filenames: books.map(book => book.filename),
+            top_k: topK,
+            query_id: queryId,
+            enhanced_query: true,
+            keywords: modelData?.keywords || []
           }),
-          fetch(searchApiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              query: query,
-              filenames: books.map(book => book.filename),
-              top_k: topK,
-              query_id: queryId,
-              enhanced_query: false,
-              keywords: modelData?.keywords || []
-            }),
-          }),
-          new Promise(resolve => setTimeout(resolve, 0)) // Minimum for search phase
-        ]);
+        }),
+        new Promise(resolve => setTimeout(resolve, 0)) // Minimum for search phase
+      ]);
 
-        if (!enhancedSearchRes.ok) {
-          throw new Error(`Enhanced search API error!`);
-        }
-        if (!originalSearchRes.ok) {
-          throw new Error(`Original search API error!`);
-        }
-
-        const enhancedData = await enhancedSearchRes.json();
-        const originalData = await originalSearchRes.json();
-
-        if (enhancedData.status === 'error') {
-          throw new Error(enhancedData.message || 'An error occurred during enhanced search');
-        }
-        if (originalData.status === 'error') {
-          throw new Error(originalData.message || 'An error occurred during original search');
-        }
-        setResponse(enhancedData.search_results || []);
-        setOriginalResponse(originalData.search_results || []);
-      } else {
-        // Production mode: only use enhanced query
-        const [searchRes] = await Promise.all([
-          fetch(searchApiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              query: enhancedQuery,
-              filenames: books.map(book => book.filename),
-              top_k: topK,
-              query_id: queryId,
-              enhanced_query: true,
-              keywords: modelData?.keywords || []
-            }),
-          }),
-          new Promise(resolve => setTimeout(resolve, 0)) // Minimum for search phase
-        ]);
-
-        if (!searchRes.ok) {
-          throw new Error(`Search API error! status`);
-        }
-
-        const data = await searchRes.json();
-
-        if (data.status === 'error') {
-          throw new Error(data.message || 'An error occurred during search');
-        }
-
-        setResponse(data.search_results);
+      if (!searchRes.ok) {
+        throw new Error(`Search API error! status`);
       }
+
+      const data = await searchRes.json();
+
+      if (data.status === 'error') {
+        throw new Error(data.message || 'An error occurred during search');
+      }
+
+      setResponse(data.search_results);
 
     } catch (err) {
       setError(err.message || 'An error occurred while searching');
@@ -472,16 +402,6 @@ function App() {
   return (
     <div className="App">
       <BackgroundAnimation />
-
-      {/* Corner Dev Toggle - small and unobtrusive */}
-      <button
-        className="dev-toggle-corner"
-        onClick={() => setDevMode(!devMode)}
-        title="Toggle Dev Mode"
-        type="button"
-      >
-        {devMode ? 'DevMode On' : 'DevMode Off'}
-      </button>
 
       {showInfoModal && (
         <div className="modal-overlay" onClick={() => setShowInfoModal(false)}>
@@ -650,66 +570,13 @@ function App() {
                       <textarea
                         value={bookUrlsInput}
                         onChange={(e) => setBookUrlsInput(e.target.value)}
-                        placeholder={`${defaultBookUrl}, https://www.example.com/my-fav-book.html, ...`}
+                        placeholder={`${defaultBookUrls[0]}, https://www.example.com/my-fav-book.html, ...`}
                         className="search-input book-urls-textarea"
                         disabled={loading}
                         rows={4}
                       />
-                      <span className="input-hint">Leave empty to try "The Wonderful Wizard of Oz"</span>
+                      <span className="input-hint">Leave empty to try the first seven Wizard of Oz books + "Jack Pumpkinhead of Oz"</span>
                     </div>
-
-                {devMode && (
-                  <>
-                    <div className="form-group">
-                      <label className="input-label">
-                        Target Chunk Size: {targetChunkSize}
-                      </label>
-                      <input
-                        type="number"
-                        value={targetChunkSize}
-                        onChange={(e) => setTargetChunkSize(Number(e.target.value))}
-                        className="search-input"
-                        disabled={loading}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="input-label">
-                        Sentence Overlap: {sentenceOverlap}
-                      </label>
-                      <input
-                        type="number"
-                        value={sentenceOverlap}
-                        onChange={(e) => setSentenceOverlap(Number(e.target.value))}
-                        className="search-input"
-                        disabled={loading}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="input-label">
-                        Small Paragraph Length: {smallParagraphLength}
-                      </label>
-                      <input
-                        type="number"
-                        value={smallParagraphLength}
-                        onChange={(e) => setSmallParagraphLength(Number(e.target.value))}
-                        className="search-input"
-                        disabled={loading}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label className="input-label">
-                        Small Paragraph Overlap: {smallParagraphOverlap}
-                      </label>
-                      <input
-                        type="number"
-                        value={smallParagraphOverlap}
-                        onChange={(e) => setSmallParagraphOverlap(Number(e.target.value))}
-                        className="search-input"
-                        disabled={loading}
-                      />
-                    </div>
-                  </>
-                )}
 
                     <button
                       type="submit"
@@ -768,23 +635,6 @@ function App() {
             </form>
             )}
 
-            {devMode && books.length > 0 && (
-              <div className="topk-input-below">
-                <label className="topk-label">
-                  Top K: {topK}
-                </label>
-                <input
-                  type="number"
-                  value={topK}
-                  onChange={(e) => setTopK(Number(e.target.value))}
-                  className="topk-input"
-                  disabled={loading}
-                  min="1"
-                  max="10"
-                />
-              </div>
-            )}
-
             {loading && loadingPhase && (
               <div className="search-loading">
                 <div className="search-dots">
@@ -797,20 +647,6 @@ function App() {
                 </p>
               </div>
             )}
-
-            {devMode && modelResponse && !loading && (
-              <div className="model-response-debug">
-                <h4>Model Response (Dev Mode)</h4>
-                <div className="debug-item">
-                  <strong>Enhanced Query:</strong>
-                  <p className="debug-value">{modelResponse.search_query}</p>
-                </div>
-                <div className="debug-item">
-                  <strong>Keywords:</strong>
-                  <p className="debug-value">{modelResponse.keywords?.join(', ') || 'None'}</p>
-                </div>
-              </div>
-            )}
           </>
 
         {error && (
@@ -820,184 +656,61 @@ function App() {
         )}
 
         {response && Array.isArray(response) && (
-          <>
-            {devMode && originalResponse ? (
-              <div className="comparison-container">
-                <div className="comparison-column">
-                  <h3 className="comparison-title">Enhanced Query Results</h3>
-                  <div className="results-container">
-                    {response.map((result, index) => (
-                      <div key={index} className="result-card">
-                        <div className="result-header">
-                          <span className="chapter-info">
-                            {books.length > 1 && result.data.book_title && (
-                              <span className="book-source-badge">
-                                {result.data.book_title}
-                              </span>
-                            )}
-                            Chapter {result.data.chapter_number}: {result.data.chapter_title}
-                          </span>
-                          <div className="badges-container">
-                            {result.data.book_progress_percent !== undefined && (
-                              <span className="progress-badge">
-                                <svg className="location-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                                  <circle cx="12" cy="10" r="3"></circle>
-                                </svg>
-                                {result.data.book_progress_percent.toFixed(1)}%
-                              </span>
-                            )}
-                            <span className="score-badge">
-                              {(result.data.score * 100).toFixed(1)} score
-                            </span>
-                          </div>
-                        </div>
-                        <div className="result-text">
-                          {result.data.matched_texts ? (
-                            (expandedResults[`enhanced-${index}`] ? result.data.matched_texts : getPreviewChunks(result.data.matched_texts))?.map((chunk, chunkIndex) =>
-                              chunk.is_match ? (
-                                <mark key={chunkIndex} className="highlight-match">
-                                  {highlightKeywords(chunk.text, modelResponse?.keywords)}
-                                </mark>
-                              ) : chunk.is_ellipsis ? (
-                                <span key={chunkIndex} className="ellipsis-text">{chunk.text} </span>
-                              ) : (
-                                <span key={chunkIndex}>{chunk.text} </span>
-                              )
-                            )
-                          ) : (
-                            result.data.text
-                          )}
-                        </div>
-                        {result.data.matched_texts && !expandedResults[`enhanced-${index}`] && (
-                          <button
-                            className="view-in-book-button"
-                            onClick={() => setExpandedResults(prev => ({ ...prev, [`enhanced-${index}`]: true }))}
-                          >
-                            View in book
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="comparison-column">
-                  <h3 className="comparison-title">Original Query Results</h3>
-                  <div className="results-container">
-                    {originalResponse.map((result, index) => (
-                      <div key={index} className="result-card">
-                        <div className="result-header">
-                          <span className="chapter-info">
-                            {books.length > 1 && result.data.book_title && (
-                              <span className="book-source-badge">
-                                {result.data.book_title}
-                              </span>
-                            )}
-                            Chapter {result.data.chapter_number}: {result.data.chapter_title}
-                          </span>
-                          <div className="badges-container">
-                            {result.data.book_progress_percent !== undefined && (
-                              <span className="progress-badge">
-                                <svg className="location-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                                  <circle cx="12" cy="10" r="3"></circle>
-                                </svg>
-                                {result.data.book_progress_percent.toFixed(1)}%
-                              </span>
-                            )}
-                            <span className="score-badge">
-                              {(result.data.score * 100).toFixed(1)} score
-                            </span>
-                          </div>
-                        </div>
-                        <div className="result-text">
-                          {result.data.matched_texts ? (
-                            (expandedResults[`original-${index}`] ? result.data.matched_texts : getPreviewChunks(result.data.matched_texts))?.map((chunk, chunkIndex) =>
-                              chunk.is_match ? (
-                                <mark key={chunkIndex} className="highlight-match">
-                                  {highlightKeywords(chunk.text, modelResponse?.keywords)}{' '}
-                                </mark>
-                              ) : chunk.is_ellipsis ? (
-                                <span key={chunkIndex} className="ellipsis-text">{chunk.text} </span>
-                              ) : (
-                                <span key={chunkIndex}>{chunk.text} </span>
-                              )
-                            )
-                          ) : (
-                            result.data.text
-                          )}
-                        </div>
-                        {result.data.matched_texts && !expandedResults[`original-${index}`] && (
-                          <button
-                            className="view-in-book-button"
-                            onClick={() => setExpandedResults(prev => ({ ...prev, [`original-${index}`]: true }))}
-                          >
-                            View in book
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="results-container">
-                {response.map((result, index) => (
-                  <div key={index} className="result-card">
-                    <div className="result-header">
-                      <span className="chapter-info">
-                        {books.length > 1 && result.data.book_title && (
-                          <span className="book-source-badge">
-                            {result.data.book_title}
-                          </span>
-                        )}
-                        Chapter {result.data.chapter_number}: {result.data.chapter_title}
+          <div className="results-container">
+            {response.map((result, index) => (
+              <div key={index} className="result-card">
+                <div className="result-header">
+                  <span className="chapter-info">
+                    {books.length > 1 && result.data.book_title && (
+                      <span className="book-source-badge">
+                        {result.data.book_title}
                       </span>
-                      <div className="badges-container">
-                        {result.data.book_progress_percent !== undefined && (
-                          <span className="progress-badge">
-                            <svg className="location-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                              <circle cx="12" cy="10" r="3"></circle>
-                            </svg>
-                            {result.data.book_progress_percent.toFixed(1)}%
-                          </span>
-                        )}
-                        <span className="score-badge">
-                          {(result.data.score * 100).toFixed(1)} score
-                        </span>
-                      </div>
-                    </div>
-                    <div className="result-text">
-                      {result.data.matched_texts ? (
-                        (expandedResults[`result-${index}`] ? result.data.matched_texts : getPreviewChunks(result.data.matched_texts))?.map((chunk, chunkIndex) =>
-                          chunk.is_match ? (
-                            <mark key={chunkIndex} className="highlight-match">
-                              {highlightKeywords(chunk.text, modelResponse?.keywords)}{' '}
-                            </mark>
-                          ) : chunk.is_ellipsis ? (
-                            <span key={chunkIndex} className="ellipsis-text">{chunk.text} </span>
-                          ) : (
-                            <span key={chunkIndex}>{chunk.text} </span>
-                          )
-                        )
-                      ) : (
-                        result.data.text
-                      )}
-                    </div>
-                    {result.data.matched_texts && !expandedResults[`result-${index}`] && (
-                      <button
-                        className="view-in-book-button"
-                        onClick={() => setExpandedResults(prev => ({ ...prev, [`result-${index}`]: true }))}
-                      >
-                        View in book
-                      </button>
                     )}
+                    Chapter {result.data.chapter_number}: {result.data.chapter_title}
+                  </span>
+                  <div className="badges-container">
+                    {result.data.book_progress_percent !== undefined && (
+                      <span className="progress-badge">
+                        <svg className="location-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                          <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                        {result.data.book_progress_percent.toFixed(1)}%
+                      </span>
+                    )}
+                    <span className="score-badge">
+                      {(result.data.score * 100).toFixed(1)} score
+                    </span>
                   </div>
-                ))}
+                </div>
+                <div className="result-text">
+                  {result.data.matched_texts ? (
+                    (expandedResults[`result-${index}`] ? result.data.matched_texts : getPreviewChunks(result.data.matched_texts))?.map((chunk, chunkIndex) =>
+                      chunk.is_match ? (
+                        <mark key={chunkIndex} className="highlight-match">
+                          {highlightKeywords(chunk.text, modelResponse?.keywords)}{' '}
+                        </mark>
+                      ) : chunk.is_ellipsis ? (
+                        <span key={chunkIndex} className="ellipsis-text">{chunk.text} </span>
+                      ) : (
+                        <span key={chunkIndex}>{chunk.text} </span>
+                      )
+                    )
+                  ) : (
+                    result.data.text
+                  )}
+                </div>
+                {result.data.matched_texts && !expandedResults[`result-${index}`] && (
+                  <button
+                    className="view-in-book-button"
+                    onClick={() => setExpandedResults(prev => ({ ...prev, [`result-${index}`]: true }))}
+                  >
+                    View in book
+                  </button>
+                )}
               </div>
-            )}
-          </>
+            ))}
+          </div>
         )}
       </div>
     </div>
