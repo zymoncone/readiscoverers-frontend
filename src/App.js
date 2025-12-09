@@ -389,7 +389,8 @@ function App() {
               filenames: books.map(book => book.filename),
               top_k: topK,
               query_id: queryId,
-              enhanced_query: true
+              enhanced_query: true,
+              keywords: modelData?.keywords || []
             }),
           }),
           fetch(searchApiUrl, {
@@ -402,7 +403,8 @@ function App() {
               filenames: books.map(book => book.filename),
               top_k: topK,
               query_id: queryId,
-              enhanced_query: false
+              enhanced_query: false,
+              keywords: modelData?.keywords || []
             }),
           }),
           new Promise(resolve => setTimeout(resolve, 0)) // Minimum for search phase
@@ -439,7 +441,8 @@ function App() {
               filenames: books.map(book => book.filename),
               top_k: topK,
               query_id: queryId,
-              enhanced_query: true
+              enhanced_query: true,
+              keywords: modelData?.keywords || []
             }),
           }),
           new Promise(resolve => setTimeout(resolve, 0)) // Minimum for search phase
@@ -499,7 +502,7 @@ function App() {
         </div>
       )}
 
-      <div className={`container ${!response ? 'minimal' : ''}`}>
+      <div className={`container ${!response && books.length === 0 && !isUploadingBook ? 'minimal' : ''} ${!response && (books.length > 0 || isUploadingBook) ? 'loaded' : ''}`}>
         {/* Slogan with controls underneath */}
         {!response && books.length === 0 && !isUploadingBook && (
           <>
@@ -521,6 +524,24 @@ function App() {
               </button>
             </div>
           </>
+        )}
+
+        {/* Landing page Add Books button */}
+        {!response && books.length === 0 && !isUploadingBook && (
+          <div className="landing-add-books">
+            <button
+              type="button"
+              onClick={() => setShowBookInputs(true)}
+              className="landing-add-books-button"
+              disabled={loading}
+            >
+              <svg className="plus-icon-large" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span className="add-books-text">Add Books to Start</span>
+            </button>
+          </div>
         )}
 
         {/* Always show search interface */}
@@ -700,7 +721,8 @@ function App() {
                   </form>
                 </div>
               </div>
-            )}            {/* Main Search Query Form - Always Visible */}
+            )}            {/* Main Search Query Form - Show when books exist or uploading */}
+            {(books.length > 0 || isUploadingBook || response) && (
             <form onSubmit={handleQuery} className="search-form query-form-main">
               <div className="form-group query-input-group">
                 <input
@@ -744,6 +766,7 @@ function App() {
                 </button>
               )}
             </form>
+            )}
 
             {devMode && books.length > 0 && (
               <div className="topk-input-below">
