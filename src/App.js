@@ -132,8 +132,6 @@ function App() {
     return result;
   };
 
-  // No longer using single progress bar - tracking individual book progress
-
   const getApiUrl = (endpoint) => {
     const isDev = (process.env.REACT_APP_ENV === 'dev');
     console.log('Environment:', isDev ? 'Development' : 'Production');
@@ -273,7 +271,6 @@ function App() {
       setBooks(successfulBooks);
 
       // Show completed books animation with staged transitions
-      // Wait 1.2s to let checkmarks display and animate
       setTimeout(() => {
         setShowCompletedBooks(true);
         // Show checkmark for 2 seconds before transitioning to open book
@@ -283,7 +280,7 @@ function App() {
             setShowCheckmark(false);
           }, 2000);
         }, 800);
-      }, 1200);
+      }, 1200); // Wait 1.2s to let checkmarks display and animate
 
     } catch (err) {
       console.error('Book upload error:', err);
@@ -308,7 +305,7 @@ function App() {
     setModelResponse(null);
 
     try {
-      // Step 1: Get LLM-enhanced search query
+      // Get LLM-enhanced search query
       setLoadingPhase('model');
       const modelApiUrl = getApiUrl('/v1/model-response');
 
@@ -353,7 +350,7 @@ function App() {
         console.log('Keywords:', modelData?.keywords);
       }
 
-      // Step 2: Use enhanced query for semantic search
+      // Use enhanced query for semantic search
       setLoadingPhase('search');
       const searchApiUrl = getApiUrl('/v1/search-response');
 
@@ -423,7 +420,6 @@ function App() {
       )}
 
       <div className={`container ${!response && books.length === 0 && !isUploadingBook ? 'minimal' : ''} ${!response && (books.length > 0 || isUploadingBook) ? 'loaded' : ''}`}>
-        {/* Slogan with controls underneath */}
         {!response && books.length === 0 && !isUploadingBook && (
           <>
             <h1 className="landing-slogan">
@@ -446,7 +442,6 @@ function App() {
           </>
         )}
 
-        {/* Landing page Add Books button */}
         {!response && books.length === 0 && !isUploadingBook && (
           <div className="landing-add-books">
             <button
@@ -464,9 +459,7 @@ function App() {
           </div>
         )}
 
-        {/* Always show search interface */}
         <>
-            {/* Show loaded books if any */}
             {books.length > 0 && !isUploadingBook && (
               <div className="books-list-display">
                 {showCheckmark ? (
@@ -496,7 +489,6 @@ function App() {
               </div>
             )}
 
-            {/* Overall Loading Indicator - Notification style above books */}
             {isUploadingBook && (
               <div className={`loading-notification ${showCompletedBooks ? 'fade-out' : ''}`}>
                 <div className="loading-spinner"></div>
@@ -504,7 +496,6 @@ function App() {
               </div>
             )}
 
-            {/* Book Processing Progress - Only shown while uploading */}
             {isUploadingBook && bookUploadStatuses.length > 0 && (
               <div className={`inline-books-progress ${showCompletedBooks ? 'fade-out' : ''}`}>
                 <div className="inline-progress-list">
@@ -558,7 +549,7 @@ function App() {
                   })}
                 </div>
               </div>
-            )}            {/* Collapsible Book URL Input Section - Now a Modal */}
+            )}
             {showBookInputs && (
               <div className="modal-overlay" onClick={() => setShowBookInputs(false)}>
                 <div className="modal-content book-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -588,7 +579,7 @@ function App() {
                   </form>
                 </div>
               </div>
-            )}            {/* Main Search Query Form - Show when books exist or uploading */}
+            )}
             {(books.length > 0 || isUploadingBook || response) && (
             <form onSubmit={handleQuery} className="search-form query-form-main">
               <div className="form-group query-input-group">
