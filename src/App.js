@@ -3,6 +3,7 @@ import './App.css';
 import './MultiBookStyles.css';
 import './InlineProgress.css';
 import BackgroundAnimation from './BackgroundAnimation';
+import { fetchWithRetry } from './utils/helper_functions';
 import { defaultBookUrls,
          targetChunkSize,
          sentenceOverlap,
@@ -153,7 +154,7 @@ function App() {
     });
 
     try {
-      const res = await fetch(apiUrl, {
+      const res = await fetchWithRetry(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -310,7 +311,7 @@ function App() {
       const modelApiUrl = getApiUrl('/v1/model-response');
 
       const [modelRes] = await Promise.all([
-        fetch(modelApiUrl, {
+        fetchWithRetry(modelApiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -359,7 +360,7 @@ function App() {
 
       // Use enhanced query
       const [searchRes] = await Promise.all([
-        fetch(searchApiUrl, {
+        fetchWithRetry(searchApiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
