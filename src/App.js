@@ -134,13 +134,7 @@ function App() {
   };
 
   const getApiUrl = (endpoint) => {
-    const isDev = (process.env.REACT_APP_ENV === 'dev');
-    console.log('Environment:', isDev ? 'Development' : 'Production');
-    const baseUrl = isDev
-      ? 'http://localhost:8080'
-      : `https://backend-cloud-run-gateway-5o71wi4q.uk.gateway.dev`;
-
-    return isDev ? `${baseUrl}${endpoint}` : `${baseUrl}${endpoint}?key=${process.env.REACT_APP_API_KEY}`;
+    return './proxy';
   };
 
   const processBook = async (url, index) => {
@@ -160,6 +154,7 @@ function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          endpoint: '/v1/book-data',
           url: url,
           target_chunk_size: targetChunkSize,
           sentence_overlap: sentenceOverlap,
@@ -169,7 +164,15 @@ function App() {
       });
 
       if (!res.ok) {
-        throw new Error(`Book data API error!`);
+        const errorText = await res.text();
+        let errorMessage = errorText;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorText;
+        } catch {
+          // If not JSON, use the raw text
+        }
+        throw new Error(`HTTP ${res.status}: ${errorMessage}`);
       }
 
       const data = await res.json();
@@ -317,6 +320,7 @@ function App() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            endpoint: '/v1/model-response',
             user_query: query
           }),
         }),
@@ -366,6 +370,7 @@ function App() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            endpoint: '/v1/search-response',
             query: enhancedQuery,
             filenames: books.map(book => book.filename),
             top_k: topK,
