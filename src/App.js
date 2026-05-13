@@ -359,8 +359,8 @@ function App() {
       setLoadingPhase('search');
       const searchApiUrl = getApiUrl('/v1/search-response');
 
-      // Generate a session ID
-      const queryId = crypto.randomUUID();
+      // Generate a session ID (crypto.randomUUID requires a secure context)
+      const queryId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
       // Use enhanced query
       const [searchRes] = await Promise.all([
