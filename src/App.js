@@ -133,12 +133,7 @@ function App() {
     return result;
   };
 
-  const getApiUrl = (endpoint) => {
-    return './proxy';
-  };
-
   const processBook = async (url, index) => {
-    const apiUrl = getApiUrl('/v1/book-data');
 
     // Update status to processing
     setBookUploadStatuses(prev => {
@@ -148,7 +143,7 @@ function App() {
     });
 
     try {
-      const res = await fetchWithRetry(apiUrl, {
+      const res = await fetchWithRetry('./proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -311,10 +306,9 @@ function App() {
     try {
       // Get LLM-enhanced search query
       setLoadingPhase('model');
-      const modelApiUrl = getApiUrl('/v1/model-response');
 
       const [modelRes] = await Promise.all([
-        fetchWithRetry(modelApiUrl, {
+        fetchWithRetry('./proxy', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -357,14 +351,13 @@ function App() {
 
       // Use enhanced query for semantic search
       setLoadingPhase('search');
-      const searchApiUrl = getApiUrl('/v1/search-response');
 
       // Generate a session ID (crypto.randomUUID requires a secure context)
       const queryId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
       // Use enhanced query
       const [searchRes] = await Promise.all([
-        fetchWithRetry(searchApiUrl, {
+        fetchWithRetry('./proxy', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
