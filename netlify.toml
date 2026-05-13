@@ -1,5 +1,15 @@
 [functions]
-  # Directory with serverless functions, including background
-  # functions, to deploy. This is an absolute path relative to the
-  # base directory, which is the root by default (/).
   directory = "functions/"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+
+[[headers]]
+  for = "/proxy"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"

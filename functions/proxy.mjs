@@ -1,14 +1,41 @@
+// In-memory rate limiter: 30 requests per minute per IP
+const rateLimitMap = new Map();
+const RATE_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX = 30;
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return false;
+  }
+  if (entry.count >= RATE_LIMIT_MAX) return true;
+  entry.count++;
+  return false;
+}
+
 export default async (req, context) => {
-  // Set CORS headers
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
   };
 
-  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('', { status: 200, headers });
+  }
+
+  // Validate secret token
+  const secret = process.env.REACT_APP_PROXY_SECRET;
+  if (secret && req.headers.get('x-proxy-secret') !== secret) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers });
+  }
+
+  // Rate limit by client IP
+  const clientIp = req.headers.get('x-nf-client-connection-ip') || req.headers.get('x-forwarded-for') || 'unknown';
+  if (isRateLimited(clientIp)) {
+    return new Response(JSON.stringify({ error: 'Too many requests' }), { status: 429, headers });
   }
 
   try {
@@ -25,8 +52,10 @@ export default async (req, context) => {
     if (process.env.REACT_APP_ENV === 'dev') {
       backendUrl = `http://localhost:8080`;
     } else {
-      // Construct the backend URL
-      backendUrl = `https://backend-cloud-run-gateway-5o71wi4q.uk.gateway.dev`;
+      backendUrl = process.env.BACKEND_URL;
+      if (!backendUrl) {
+        return new Response(JSON.stringify({ error: 'Backend not configured' }), { status: 500, headers });
+      }
     }
 
     // Parse the request body to get the endpoint
@@ -42,14 +71,15 @@ export default async (req, context) => {
       });
     }
 
+    const backendSecret = process.env.BACKEND_PROXY_SECRET;
     const endpoint = requestBody.endpoint;
-    console.log('Endpoint:', endpoint);
     if (!endpoint) {
       // Forward the request to the backend
       const response = await fetch(backendUrl, {
         method: req.method,
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(backendSecret ? { 'x-proxy-secret': backendSecret } : {})
         },
       });
 
@@ -72,16 +102,16 @@ export default async (req, context) => {
     // Add the API key as a query parameter
     const url = new URL(backendUrl);
 
-    if (process.env.REACT_APP_ENV === 'dev') {
+    if (process.env.REACT_APP_ENV !== 'dev') {
       url.searchParams.set('key', apiKey);
     }
 
     // Forward the request to the backend
-    console.log('request method:', req.method);
     const response = await fetch(url.toString(), {
       method: req.method,
       headers: {
-        'Content-Type': req.headers.get('content-type') || 'application/json'
+        'Content-Type': req.headers.get('content-type') || 'application/json',
+        ...(backendSecret ? { 'x-proxy-secret': backendSecret } : {})
       },
       body: Object.keys(requestBody).length > 0 ? JSON.stringify(requestBody) : undefined
     });

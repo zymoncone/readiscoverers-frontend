@@ -10,9 +10,18 @@ export const fetchWithRetry = async (
   maxRetries = 3,
   initialDelay = 1000
 ) => {
+  const secret = process.env.REACT_APP_PROXY_SECRET;
+  const mergedOptions = {
+    ...options,
+    headers: {
+      ...(options?.headers || {}),
+      ...(secret ? { 'x-proxy-secret': secret } : {})
+    }
+  };
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const response = await fetch(url, options);
+      const response = await fetch(url, mergedOptions);
 
       // If successful, return the response
       if (response.ok) {
