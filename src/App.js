@@ -133,18 +133,7 @@ function App() {
     return result;
   };
 
-  const getApiUrl = (endpoint) => {
-    const isDev = (process.env.REACT_APP_ENV === 'dev');
-    console.log('Environment:', isDev ? 'Development' : 'Production');
-    const baseUrl = isDev
-      ? 'http://localhost:8080'
-      : `https://backend-cloud-run-gateway-5o71wi4q.uk.gateway.dev`;
-
-    return isDev ? `${baseUrl}${endpoint}` : `${baseUrl}${endpoint}?key=${process.env.REACT_APP_API_KEY}`;
-  };
-
   const processBook = async (url, index) => {
-    const apiUrl = getApiUrl('/v1/book-data');
 
     // Update status to processing
     setBookUploadStatuses(prev => {
@@ -154,12 +143,13 @@ function App() {
     });
 
     try {
-      const res = await fetchWithRetry(apiUrl, {
+      const res = await fetchWithRetry('./proxy', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          endpoint: '/v1/book-data',
           url: url,
           target_chunk_size: targetChunkSize,
           sentence_overlap: sentenceOverlap,
@@ -169,7 +159,15 @@ function App() {
       });
 
       if (!res.ok) {
-        throw new Error(`Book data API error!`);
+        const errorText = await res.text();
+        let errorMessage = errorText;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorText;
+        } catch {
+          // If not JSON, use the raw text
+        }
+        throw new Error(`HTTP ${res.status}: ${errorMessage}`);
       }
 
       const data = await res.json();
@@ -308,15 +306,15 @@ function App() {
     try {
       // Get LLM-enhanced search query
       setLoadingPhase('model');
-      const modelApiUrl = getApiUrl('/v1/model-response');
 
       const [modelRes] = await Promise.all([
-        fetchWithRetry(modelApiUrl, {
+        fetchWithRetry('./proxy', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            endpoint: '/v1/model-response',
             user_query: query
           }),
         }),
@@ -353,19 +351,19 @@ function App() {
 
       // Use enhanced query for semantic search
       setLoadingPhase('search');
-      const searchApiUrl = getApiUrl('/v1/search-response');
 
-      // Generate a session ID
-      const queryId = crypto.randomUUID();
+      // Generate a session ID (crypto.randomUUID requires a secure context)
+      const queryId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
       // Use enhanced query
       const [searchRes] = await Promise.all([
-        fetchWithRetry(searchApiUrl, {
+        fetchWithRetry('./proxy', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            endpoint: '/v1/search-response',
             query: enhancedQuery,
             filenames: books.map(book => book.filename),
             top_k: topK,
