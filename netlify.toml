@@ -1,3 +1,6 @@
+[build.environment]
+  NODE_VERSION = "23"
+
 [functions]
   directory = "functions/"
 

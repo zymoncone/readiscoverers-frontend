@@ -192,6 +192,9 @@ const BackgroundAnimation = () => {
       };
     };
 
+    // Disable p5's Friendly Error System — its bundled acorn parser can't handle modern JS syntax
+    p5.disableFriendlyErrors = true;
+
     // Create p5 instance
     p5Instance.current = new p5(sketch, canvasRef.current);
 
