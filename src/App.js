@@ -35,6 +35,7 @@ function App() {
   const [showCompletedBooks, setShowCompletedBooks] = useState(false);
   const [showCheckmark, setShowCheckmark] = useState(false);
   const [expandedResults, setExpandedResults] = useState({}); // Track which results are expanded
+  const [serverWarmingUp, setServerWarmingUp] = useState(false);
 
   // Encouraging messages for book processing
   const encouragingMessages = [
@@ -44,6 +45,13 @@ function App() {
     "Almost there, analyzing content...",
     "Building your book's search index..."
   ];
+
+  // Auto-dismiss cold-start toast after 10s
+  useEffect(() => {
+    if (!serverWarmingUp) return;
+    const timer = setTimeout(() => setServerWarmingUp(false), 10000);
+    return () => clearTimeout(timer);
+  }, [serverWarmingUp]);
 
   // Rotate encouraging messages while processing
   useEffect(() => {
@@ -156,6 +164,8 @@ function App() {
           small_paragraph_length: smallParagraphLength,
           small_paragraph_overlap: smallParagraphOverlap
         }),
+      }, 6, 5000, 30000, ({ isColdStart }) => {
+        if (isColdStart) setServerWarmingUp(true);
       });
 
       if (!res.ok) {
@@ -287,6 +297,7 @@ function App() {
     } finally {
       setLoading(false);
       setIsUploadingBook(false);
+      setServerWarmingUp(false);
     }
   };
 
@@ -398,6 +409,12 @@ function App() {
   return (
     <div className="App">
       <BackgroundAnimation />
+
+      {serverWarmingUp && (
+        <div className="warming-up-toast">
+          Server is waking up after a period of inactivity, this may take a few extra seconds.
+        </div>
+      )}
 
       {showInfoModal && (
         <div className="modal-overlay" onClick={() => setShowInfoModal(false)}>

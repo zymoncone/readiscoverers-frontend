@@ -9,7 +9,8 @@ export const fetchWithRetry = async (
   options,
   maxRetries = 6,
   initialDelay = 5000,
-  maxDelay = 30000
+  maxDelay = 30000,
+  onRetry = null
 ) => {
   const secret = process.env.REACT_APP_PROXY_SECRET;
   const mergedOptions = {
@@ -38,6 +39,7 @@ export const fetchWithRetry = async (
           `Retrying in ${delay}ms... ` +
           `(Attempt ${attempt + 1}/${maxRetries})`
         );
+        if (onRetry) onRetry({ attempt, status: response.status, isColdStart: response.status === 504 });
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -53,6 +55,7 @@ export const fetchWithRetry = async (
           `Retrying in ${delay}ms... ` +
           `(Attempt ${attempt + 1}/${maxRetries})`
         );
+        if (onRetry) onRetry({ attempt, status: null, isColdStart: false });
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
