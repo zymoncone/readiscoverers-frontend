@@ -106,16 +106,35 @@ export default async (req, context) => {
       url.searchParams.set('key', apiKey);
     }
 
-    // Forward the request to the backend
-    const response = await fetch(url.toString(), {
-      method: req.method,
-      headers: {
-        'Content-Type': req.headers.get('content-type') || 'application/json',
-        ...(backendSecret ? { 'x-proxy-secret': backendSecret } : {})
-      },
-      body: Object.keys(requestBody).length > 0 ? JSON.stringify(requestBody) : undefined
-    });
+    // Abort 2s before Netlify's 10s function limit (free plan) so we can return
+    // a clean 504 rather than having Netlify kill the function mid-response.
+    // Raise to 24000 if on a Pro plan (26s limit).
+    const controller = new AbortController();
+    const abortTimer = setTimeout(() => controller.abort(), 8000);
 
+    let response;
+    try {
+      response = await fetch(url.toString(), {
+        method: req.method,
+        headers: {
+          'Content-Type': req.headers.get('content-type') || 'application/json',
+          ...(backendSecret ? { 'x-proxy-secret': backendSecret } : {})
+        },
+        body: Object.keys(requestBody).length > 0 ? JSON.stringify(requestBody) : undefined,
+        signal: controller.signal
+      });
+    } catch (fetchError) {
+      clearTimeout(abortTimer);
+      if (fetchError.name === 'AbortError') {
+        return new Response(
+          JSON.stringify({ error: 'Backend is warming up — please retry in a moment' }),
+          { status: 504, headers }
+        );
+      }
+      throw fetchError;
+    }
+
+    clearTimeout(abortTimer);
     const responseBody = await response.text();
 
     return new Response(responseBody, {

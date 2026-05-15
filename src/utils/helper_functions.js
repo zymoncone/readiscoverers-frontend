@@ -7,8 +7,9 @@
 export const fetchWithRetry = async (
   url,
   options,
-  maxRetries = 3,
-  initialDelay = 1000
+  maxRetries = 6,
+  initialDelay = 5000,
+  maxDelay = 30000
 ) => {
   const secret = process.env.REACT_APP_PROXY_SECRET;
   const mergedOptions = {
@@ -31,10 +32,10 @@ export const fetchWithRetry = async (
       // For 5xx errors or 429 (rate limit), retry with backoff
       if ((attempt < maxRetries) &&
           (response.status >= 500 || response.status === 429)) {
-        const delay = initialDelay * Math.pow(2, attempt);
+        const delay = Math.min(initialDelay * Math.pow(2, attempt), maxDelay);
         console.log(
-          `API request failed with status ${response.status}. ,`
-          `Retrying in ${delay}ms... `,
+          `API request failed with status ${response.status}. ` +
+          `Retrying in ${delay}ms... ` +
           `(Attempt ${attempt + 1}/${maxRetries})`
         );
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -46,10 +47,10 @@ export const fetchWithRetry = async (
     } catch (error) {
       // Network errors or fetch failures
       if (attempt < maxRetries) {
-        const delay = initialDelay * Math.pow(2, attempt);
+        const delay = Math.min(initialDelay * Math.pow(2, attempt), maxDelay);
         console.log(
-          `Network error: ${error.message}. `,
-          `Retrying in ${delay}ms... `,
+          `Network error: ${error.message}. ` +
+          `Retrying in ${delay}ms... ` +
           `(Attempt ${attempt + 1}/${maxRetries})`
         );
         await new Promise(resolve => setTimeout(resolve, delay));
